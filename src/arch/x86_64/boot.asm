@@ -1,4 +1,5 @@
 global start
+extern long_mode_start
 
 section .text
 bits 32
@@ -12,6 +13,10 @@ start:
     ; setup paging and enter long mode
     call set_up_page_tables
     call enable_paging     
+    ; load the 64-bit GDT
+    lgdt [gdt64.pointer]
+    ; enter 64 bit mode by far jumping to reload code selector
+    jmp gdt64.code:long_mode_start
     ; print `OK` to screen
     mov dword [0xb8000], 0x2f4b2f4f
     hlt
@@ -147,3 +152,12 @@ stack_bottom:
     resb 64
 stack_top:
 
+; set up a 64 bit GDT with a read only code segment
+section .rodata
+gdt64:
+    dq 0 ; zero entry
+.code: equ $ - gdt64 ; set .code to be the offset start of our code segment
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
+.pointer:    ; special pointer for lgdt
+    dw $ - gdt64 - 1
+    dq gdt64
