@@ -17,7 +17,7 @@ start:
     lgdt [gdt64.pointer]
     ; enter 64 bit mode by far jumping to reload code selector
     jmp gdt64.code:long_mode_start
-    ; print `OK` to screen
+    ; print `OK` to screen (not reached)
     mov dword [0xb8000], 0x2f4b2f4f
     hlt
 
