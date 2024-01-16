@@ -26,7 +26,7 @@ img: $(img)
 #   execution of `losetup -f` for loop0 and loop1
 # see https://stackoverflow.com/a/29085760 for more info
 $(img): $(kernel) $(grub_cfg)
-	dd if=/dev/zero of=$(img) bs=512 count=32768;            \
+	@dd if=/dev/zero of=$(img) bs=512 count=32768;           \
 	sudo parted $(img) mklabel msdos;                        \
 	sudo parted $(img) mkpart primary fat32 2048s 30720s;    \
 	sudo parted $(img) set 1 boot on;                        \
