@@ -25,27 +25,27 @@ img: $(img)
 #   execution of `losetup -f` for loop0 and loop1
 # see https://stackoverflow.com/a/29085760 for more info
 $(img): $(kernel) $(grub_cfg)
-	dd if=/dev/zero of=$(img) bs=512 count=32768;			\
-	sudo parted $(img) mklabel msdos;						\
-	sudo parted $(img) mkpart primary fat32 2048s 30720s;	\
-	sudo parted $(img) set 1 boot on;						\
-	loop0=$$(sudo losetup -f);									\
-	sudo losetup $$loop0 $(img);							\
-	loop1=$$(sudo losetup -f);									\
-	sudo losetup $$loop1 $(img) -o 1048576;					\
-	sudo mkdosfs -F32 -f 2 $$loop1;							\
-	sudo mount $$loop1 /mnt/fatgrub;						\
-	sudo grub-install 										\
-		--directory=/home/cpe454/opt/cross/lib/grub/i386-pc \
-		--root-directory=/mnt/fatgrub 						\
-		--no-floppy 										\
-		--modules="normal part_msdos ext2 multiboot" 		\
-		$$loop0;											\
-	sudo cp $(kernel) /mnt/fatgrub/boot/kernel.bin;			\
-	sudo cp $(grub_cfg) /mnt/fatgrub/boot/grub/grub.cfg;	\
-	sudo umount /mnt/fatgrub;								\
-	sudo losetup -d $$loop0;								\
-	sudo losetup -d $$loop1;								\
+	dd if=/dev/zero of=$(img) bs=512 count=32768;            \
+	sudo parted $(img) mklabel msdos;                        \
+	sudo parted $(img) mkpart primary fat32 2048s 30720s;    \
+	sudo parted $(img) set 1 boot on;                        \
+	loop0=$$(sudo losetup -f);                               \
+	sudo losetup $$loop0 $(img);                             \
+	loop1=$$(sudo losetup -f);                               \
+	sudo losetup $$loop1 $(img) -o 1048576;                  \
+	sudo mkdosfs -F32 -f 2 $$loop1;                          \
+	sudo mount $$loop1 /mnt/fatgrub;                         \
+	sudo grub-install                                        \
+		--directory=/home/cpe454/opt/cross/lib/grub/i386-pc  \
+		--root-directory=/mnt/fatgrub                        \
+		--no-floppy                                          \
+		--modules="normal part_msdos ext2 multiboot"         \
+		$$loop0;                                             \
+	sudo cp $(kernel) /mnt/fatgrub/boot/kernel.bin;          \
+	sudo cp $(grub_cfg) /mnt/fatgrub/boot/grub/grub.cfg;     \
+	sudo umount /mnt/fatgrub;                                \
+	sudo losetup -d $$loop0;                                 \
+	sudo losetup -d $$loop1;                                 \
 
 run-iso: $(iso)
 	@qemu-system-x86_64 -cdrom $(iso)
