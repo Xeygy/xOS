@@ -2,6 +2,7 @@ arch ?= x86_64
 kernel := build/kernel-$(arch).bin
 iso := build/os-$(arch).iso
 img := build/os-$(arch).img
+grub := /home/cpe454/opt/cross/lib/grub/i386-pc
 
 linker_script := src/arch/$(arch)/linker.ld
 grub_cfg := src/arch/$(arch)/grub.cfg
@@ -36,7 +37,7 @@ $(img): $(kernel) $(grub_cfg)
 	sudo mkdosfs -F32 -f 2 $$loop1;                          \
 	sudo mount $$loop1 /mnt/fatgrub;                         \
 	sudo grub-install                                        \
-		--directory=/home/cpe454/opt/cross/lib/grub/i386-pc  \
+		--directory=$(grub)                                  \
 		--root-directory=/mnt/fatgrub                        \
 		--no-floppy                                          \
 		--modules="normal part_msdos ext2 multiboot"         \
