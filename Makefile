@@ -9,6 +9,11 @@ grub_cfg := src/arch/$(arch)/grub.cfg
 assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
+c_source_files := $(wildcard src/*.c)
+c_depfiles := $(patsubst src/%.c, \
+	build/arch/$(arch)/%.d, $(c_source_files))
+c_obj_files := $(patsubst src/%.c, \
+	build/arch/$(arch)/%.o, $(c_source_files))
 
 .PHONY: all clean run img run-iso iso
 
@@ -60,10 +65,15 @@ $(iso): $(kernel) $(grub_cfg)
 	@grub-mkrescue -o $(iso) build/isofiles 2> /dev/null
 	@rm -r build/isofiles
 
-$(kernel): $(assembly_object_files) $(linker_script)
-	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files)
+$(kernel): $(assembly_object_files) $(linker_script) $(c_obj_files)
+	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(c_obj_files)
+
+build/arch/$(arch)/%.o: src/%.c 
+	x86_64-elf-gcc $< -c -g -MMD -o $@
 
 # compile assembly files
 build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm
 	@mkdir -p $(shell dirname $@)
 	@nasm -felf64 $< -o $@
+
+include $(wildcard $(c_depfiles))
