@@ -20,6 +20,7 @@ typedef enum {
 	VGA_WHITE = 15
 } vga_color_t;
 
+void VGA_clear(void);
 void VGA_display_char(char c);
 
 #endif

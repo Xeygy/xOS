@@ -14,10 +14,27 @@ static int height = 20;
 static int cursor = 0;
 static unsigned char color = FG(VGA_WHITE) | BG(VGA_BROWN);
 
-void VGA_display_char(char c)
+/* 
+    Clears the screen
+*/
+void VGA_clear(void) 
 {
-    if (c == '\n') 
-    {
+    int r, c;
+    for (r = 0; r < height; c++) {
+        for (c = 0; c < width; r++) {
+            vgaBuff[r * width + c] = 0;
+        }
+    }
+    cursor = 0;
+}
+
+/* 
+    Displays char c on the next available space on the
+    current line. If the line is not wide enough, overwrites
+    the existing last character with c. Supports \n and \r
+*/
+void VGA_display_char(char c) {
+    if (c == '\n') {
         cursor = (LINE(cursor) + 1) * width;
         //if (cursor >= width*height)
         //    scroll(); 
