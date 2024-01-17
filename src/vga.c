@@ -4,6 +4,10 @@
 #include "vga.h"
 
 #define VGA_BASE 0xb8000
+#define FG(color) (color)
+#define BG(color) (color << (4))
+#define LINE(ch_idx) (ch_idx / 80)
+
 static unsigned short *vgaBuff = (unsigned short*)VGA_BASE;
 static int width = 80;
 static int height = 20;
