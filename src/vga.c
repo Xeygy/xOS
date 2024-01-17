@@ -1,6 +1,4 @@
-// extern void VGA_clear(void);
-// extern void VGA_display_char(char);
-// extern void VGA_display_str(const char *);
+#include <stddef.h>
 #include "vga.h"
 
 #define VGA_BASE 0xb8000
@@ -15,13 +13,13 @@ static int cursor = 0;
 static unsigned char color = FG(VGA_WHITE) | BG(VGA_BROWN);
 
 /* 
-    Clears the screen
+    Clears the screen.
 */
 void VGA_clear(void) 
 {
     int r, c;
-    for (r = 0; r < height; c++) {
-        for (c = 0; c < width; r++) {
+    for (r = 0; r < height; r++) {
+        for (c = 0; c < width; c++) {
             vgaBuff[r * width + c] = 0;
         }
     }
@@ -45,5 +43,16 @@ void VGA_display_char(char c) {
         vgaBuff[cursor] = (color << 8) | c;
         if ( (cursor % width) < (width - 1))
             cursor++; 
+    }
+}
+
+/*
+    Displays chars starting at p until it reaches a null char.
+*/
+void VGA_display_str(const char *p) {
+    char curr = *p;
+    while (curr != '\0') {
+        VGA_display_char(curr);
+        curr = *(++p);
     }
 }

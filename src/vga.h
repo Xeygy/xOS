@@ -22,5 +22,6 @@ typedef enum {
 
 void VGA_clear(void);
 void VGA_display_char(char c);
+void VGA_display_str(const char *p);
 
 #endif
