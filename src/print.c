@@ -44,6 +44,8 @@ int printk(const char *fmt, ...) {
             case 'u':
                 print_ullong(va_arg(args, unsigned int), 10);
                 break;
+            case 'p':
+                VGA_display_str("0x");
             case 'x':
                 print_ullong(va_arg(args, unsigned int), 16);
                 break;
