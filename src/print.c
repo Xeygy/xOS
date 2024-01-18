@@ -6,6 +6,20 @@
 
 void print_int(int i);
 
+/*
+    printf but for the kernel. supports
+        %% - a percent sign
+        %d - a signed int
+        %u - an unsigned int
+        %x - lowercase hex representation
+        %c - unsigned char
+        %p - pointer in hex prefixed with 0x
+        %s - string (char ptr w/terminator)
+
+        %h[dux] - converts to a short 
+        %l[dux] - converts to a long
+        %q[dux] - converts to a long long
+*/
 int printk(const char *fmt, ...) {
     int i = 0, num_vars = 0, fstr;
     va_list args;
