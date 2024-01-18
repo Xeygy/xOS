@@ -24,10 +24,12 @@ void print_llong(long long int i, int base);
 */
 int printk(const char *fmt, ...) {
     int i = 0;
+    int is_h, is_l, is_q;
     va_list args;
     va_start(args, fmt); 
 
     while (fmt[i] != '\0') {
+        is_h = 0, is_l = 0, is_q = 0;
         if (fmt[i] != '%') {
             VGA_display_char(fmt[i]);
             i++;
@@ -35,22 +37,57 @@ int printk(const char *fmt, ...) {
         }
         i++;
         switch (fmt[i]) {
+            case 'h':
+                is_h = 1;
+                i++;
+                break;
+            case 'l':
+                is_l = 1;
+                i++;
+                break;
+            case 'q':
+                is_q = 1;
+                i++;
+                break;
+        }
+        switch (fmt[i]) {
             case '%':
                 VGA_display_char('%');
                 break;
 
             case 'd':
-                print_llong(va_arg(args, int), 10);
+                if (is_h)
+                    print_llong(va_arg(args, int), 10);
+                else if (is_l) 
+                    print_llong(va_arg(args, long), 10);
+                else if (is_q)
+                    print_llong(va_arg(args, long long), 10);
+                else
+                    print_llong(va_arg(args, int), 10);
                 break;
 
             case 'u':
-                print_ullong(va_arg(args, unsigned int), 10);
+                if (is_h)
+                    print_ullong(va_arg(args, unsigned int), 10);
+                else if (is_l) 
+                    print_ullong(va_arg(args, unsigned long), 10);
+                else if (is_q)
+                    print_ullong(va_arg(args, unsigned long long), 10);
+                else
+                    print_ullong(va_arg(args, unsigned int), 10);
                 break;
 
             case 'p':
                 VGA_display_str("0x");
             case 'x':
-                print_ullong(va_arg(args, unsigned int), 16);
+                if (is_h)
+                    print_ullong(va_arg(args, unsigned int), 16);
+                else if (is_l) 
+                    print_ullong(va_arg(args, unsigned long), 16);
+                else if (is_q)
+                    print_ullong(va_arg(args, unsigned long long), 16);
+                else
+                    print_ullong(va_arg(args, unsigned int), 16);
                 break;
 
             case 'c':
@@ -61,14 +98,10 @@ int printk(const char *fmt, ...) {
                 VGA_display_str(va_arg(args, char *));
                 break;
 
-            case '\0':
-                VGA_display_str(" <trailing %>");
-                i--; //to catch the null terminator
-                break;
             default:
-                VGA_display_str("<undefined specifier: ");
+                // just print the %specifier if it isn't valid.
+                VGA_display_char('%');
                 VGA_display_char(fmt[i]);
-                VGA_display_char('>');
             }
         i++;
     }
