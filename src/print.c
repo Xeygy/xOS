@@ -13,7 +13,7 @@ void print_llong(long long int i, int base);
         %% - a percent sign
         %d - a signed int
         %u - an unsigned int
-        %x - lowercase hex representation
+        %x - lowercase hex uint
         %c - unsigned char
         %p - pointer in hex prefixed with 0x
         %s - string (char ptr w/terminator)
@@ -43,6 +43,9 @@ int printk(const char *fmt, ...) {
                 break;
             case 'u':
                 print_ullong(va_arg(args, unsigned int), 10);
+                break;
+            case 'x':
+                print_ullong(va_arg(args, unsigned int), 16);
                 break;
             case '\0':
                 VGA_display_str(" <trailing %>");
