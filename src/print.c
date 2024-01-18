@@ -38,20 +38,29 @@ int printk(const char *fmt, ...) {
             case '%':
                 VGA_display_char('%');
                 break;
+
             case 'd':
                 print_llong(va_arg(args, int), 10);
                 break;
+
             case 'u':
                 print_ullong(va_arg(args, unsigned int), 10);
                 break;
+
             case 'p':
                 VGA_display_str("0x");
             case 'x':
                 print_ullong(va_arg(args, unsigned int), 16);
                 break;
+
             case 'c':
                 VGA_display_char(va_arg(args, int));
                 break;
+
+            case 's':
+                VGA_display_str(va_arg(args, char *));
+                break;
+
             case '\0':
                 VGA_display_str(" <trailing %>");
                 i--; //to catch the null terminator
