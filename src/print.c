@@ -3,8 +3,9 @@
 #include <stdarg.h>
 
 #define MAXBUF (sizeof(long long int) * 8) // long enough even for binary
+static char digits[] = "0123456789abcdef";
 
-void print_int(int i);
+void print_llong(long long int i, int base);
 
 /*
     printf but for the kernel. supports
@@ -37,7 +38,7 @@ int printk(const char *fmt, ...) {
                 VGA_display_char('%');
                 break;
             case 'd':
-                print_int(va_arg(args, int));
+                print_llong(va_arg(args, int), 10);
                 break;
             case '\0':
                 VGA_display_str(" <trailing %>");
@@ -53,7 +54,8 @@ int printk(const char *fmt, ...) {
     va_end(args);
 }
 
-void print_int(int i) {
+/* base must be between 1 and 16 inclusive */
+void print_llong(long long int i, int base) {
     char buf[MAXBUF];
     int negative = 0, idx = 0, temp;
     if (i == 0) {
@@ -61,14 +63,15 @@ void print_int(int i) {
         return;
     }
     if (i < 0) {
-        i = -i;
         negative = 1;
     }
     // convert ints to chars and put onto stack
-    while (i > 0 && idx < MAXBUF) {
-        temp = i % 10;
-        i /= 10;
-        buf[idx] = temp + 48;
+    while (i != 0 && idx < MAXBUF) {
+        temp = i % base;
+        if (negative)
+            temp = -temp;
+        i /= base;
+        buf[idx] = digits[temp];
         idx++;
     }
     idx--; // revert the last ++

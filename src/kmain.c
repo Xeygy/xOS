@@ -1,6 +1,7 @@
 #include "vga.h"
 #include "string.h"
 #include "print.h"
+#include <limits.h>
 
 #define TO_CHAR(i) (i % 10 + 48)
 
@@ -21,7 +22,7 @@ int kmain() {
     }*/
     st = "Hello World!";
     printk("Hello World! len: %d, expected: %d, percent %%\n", strlen(st), 12);
-    printk("looong: %d\n", -1234567890);
+    printk("int min: %d, max: %d\n", INT_MIN, INT_MAX);
     printk("Error tests %O %% \n%x % ds %");
     st = "";
     printk("\nempty len: %d\n", strlen(st));
