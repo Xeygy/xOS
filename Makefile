@@ -25,6 +25,10 @@ clean:
 run: $(img)
 	@qemu-system-x86_64 -s -drive format=raw,file=$(img) -serial stdio
 
+# needs another terminal window running `make run`
+gdb:
+	x86_64-elf-gdb
+
 img: $(img)
 
 # we use a bash script to create the fs img, for in order 
