@@ -37,3 +37,14 @@ void *memcpy(void *dest, const void *src, size_t n) {
     }
 }
 
+/*
+    Returns the length of string s.
+*/
+size_t strlen(const char *s) {
+    size_t len = 0;
+    while (*s != '\0') {
+        s++;
+        len++;
+    }
+    return len;
+}
