@@ -25,6 +25,7 @@ int kmain() {
     printk("int min: %d, max: %d\n", INT_MIN, INT_MAX);
     printk("uint max: %u, overflow (+1): %u \n", UINT_MAX, UINT_MAX + 1);
     printk("uint hex of 28 is: %x, max: %x \n", 28, UINT_MAX);
+    printk("unsigned char test %c, emoji: %c \n", '&', '🥝');
     printk("Error tests %O %% \n%x % ds %");
     st = "";
     printk("\nempty len: %u\n", strlen(st));

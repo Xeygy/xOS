@@ -47,6 +47,9 @@ int printk(const char *fmt, ...) {
             case 'x':
                 print_ullong(va_arg(args, unsigned int), 16);
                 break;
+            case 'c':
+                VGA_display_char(va_arg(args, int));
+                break;
             case '\0':
                 VGA_display_str(" <trailing %>");
                 i--; //to catch the null terminator
