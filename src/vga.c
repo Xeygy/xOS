@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include "vga.h"
+#include "string.h"
 
 #define VGA_BASE 0xb8000
 #define FG(color) (color)
@@ -11,6 +12,8 @@ static int width = 80;
 static int height = 20;
 static int cursor = 0;
 static unsigned char color = FG(VGA_WHITE) | BG(VGA_BROWN);
+
+void scroll();
 
 /* 
     Clears the screen.
@@ -34,8 +37,10 @@ void VGA_clear(void)
 void VGA_display_char(char c) {
     if (c == '\n') {
         cursor = (LINE(cursor) + 1) * width;
-        //if (cursor >= width*height)
-        //    scroll(); 
+        if (cursor >= width*height) {
+            scroll(); 
+            cursor -= width;
+        }            
     }
     else if (c == '\r')
         cursor = LINE(cursor);
@@ -55,4 +60,19 @@ void VGA_display_str(const char *p) {
         VGA_display_char(curr);
         curr = *(++p);
     }
+}
+
+/*
+    scrolls the entire screen up by 1 row. deletes the first row.
+    does not move cursor.
+*/
+void scroll() {
+    int r;
+    unsigned short *curr_r, *next_r;
+    for (r = 0; r < height - 1; r++) {
+        curr_r = vgaBuff + r * width;
+        next_r = vgaBuff + (r + 1) * width;
+        memcpy(curr_r, next_r, width);
+    }
+    memset(next_r, 0, width);
 }
