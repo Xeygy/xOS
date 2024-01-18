@@ -23,7 +23,7 @@ void print_llong(long long int i, int base);
         %q[dux] - converts to a long long
 */
 int printk(const char *fmt, ...) {
-    int i = 0, num_vars = 0, fstr;
+    int i = 0;
     va_list args;
     va_start(args, fmt); 
 
@@ -56,6 +56,7 @@ int printk(const char *fmt, ...) {
         i++;
     }
     va_end(args);
+    return 0;
 }
 
 void print_llong(long long int i, int base) {
@@ -71,7 +72,7 @@ void print_llong(long long int i, int base) {
 /* base must be between 1 and 16 inclusive */
 void print_ullong(unsigned long long int i, int base) {
     char buf[MAXBUF];
-    int negative = 0, idx = 0, temp;
+    int idx = 0, temp;
     if (i == 0) {
         VGA_display_char('0');
         return;
