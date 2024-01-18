@@ -1,13 +1,4 @@
-#include <stddef.h>
 #include "string.h"
-
-void *memset(void *dst, int c, size_t n);
-void *memcpy(void *dest, const void *src, size_t n);
-size_t strlen(const char *s);
-char *strcpy(char *dest, const char *src);
-int strcmp(const char *s1, const char *s2);
-const char *strchr(const char *s, int c);
-char *strdup(const char *s);
 
 /*
     Sets the block of memory at dst to 
@@ -47,4 +38,17 @@ size_t strlen(const char *s) {
         len++;
     }
     return len;
+}
+
+/*
+    Copies string src into dest, including terminating 0.
+    Returns dest. Does not check overflow. 
+*/
+char *strcpy(char *dest, const char *src) {
+    int s_len, i;
+    s_len = strlen(src);
+    for (i = 0; i <= s_len; i++) {
+        dest[i] = src[i];
+    }
+    return dest;
 }
