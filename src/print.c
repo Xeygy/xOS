@@ -5,6 +5,7 @@
 #define MAXBUF (sizeof(long long int) * 8) // long enough even for binary
 static char digits[] = "0123456789abcdef";
 
+void print_ullong(unsigned long long int i, int base);
 void print_llong(long long int i, int base);
 
 /*
@@ -40,6 +41,9 @@ int printk(const char *fmt, ...) {
             case 'd':
                 print_llong(va_arg(args, int), 10);
                 break;
+            case 'u':
+                print_ullong(va_arg(args, unsigned int), 10);
+                break;
             case '\0':
                 VGA_display_str(" <trailing %>");
                 i--; //to catch the null terminator
@@ -54,29 +58,32 @@ int printk(const char *fmt, ...) {
     va_end(args);
 }
 
-/* base must be between 1 and 16 inclusive */
 void print_llong(long long int i, int base) {
+    unsigned long long u;
+    if (i < 0) {
+        u = -i;
+        VGA_display_char('-');
+    } else 
+        u = i;
+    print_ullong(u, base);
+}
+
+/* base must be between 1 and 16 inclusive */
+void print_ullong(unsigned long long int i, int base) {
     char buf[MAXBUF];
     int negative = 0, idx = 0, temp;
     if (i == 0) {
         VGA_display_char('0');
         return;
     }
-    if (i < 0) {
-        negative = 1;
-    }
     // convert ints to chars and put onto stack
     while (i != 0 && idx < MAXBUF) {
         temp = i % base;
-        if (negative)
-            temp = -temp;
         i /= base;
         buf[idx] = digits[temp];
         idx++;
     }
     idx--; // revert the last ++
-    if (negative)
-        VGA_display_char('-');
     // pop chars off the stack and display
     while (idx >= 0) {
         VGA_display_char(buf[idx]);

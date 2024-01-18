@@ -23,6 +23,7 @@ int kmain() {
     st = "Hello World!";
     printk("Hello World! len: %d, expected: %d, percent %%\n", strlen(st), 12);
     printk("int min: %d, max: %d\n", INT_MIN, INT_MAX);
+    printk("uint max: %u, overflow (+1): %u \n", UINT_MAX, UINT_MAX + 1);
     printk("Error tests %O %% \n%x % ds %");
     st = "";
     printk("\nempty len: %d\n", strlen(st));
