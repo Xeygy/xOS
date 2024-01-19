@@ -63,6 +63,13 @@ void VGA_display_str(const char *p) {
 }
 
 /*
+    Changes the text output color
+*/
+void VGA_set_color(vga_color_t fg, vga_color_t bg) {
+    color = FG(fg) | BG(bg);
+}
+
+/*
     scrolls the entire screen up by 1 row. deletes the first row.
     does not move cursor.
 */

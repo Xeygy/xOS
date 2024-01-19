@@ -98,6 +98,11 @@ int printk(const char *fmt, ...) {
                 VGA_display_str(va_arg(args, char *));
                 break;
 
+            case '\0':
+                VGA_display_char('%');
+                i--;
+                break;
+
             default:
                 // just print the %specifier if it isn't valid.
                 VGA_display_char('%');

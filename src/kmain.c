@@ -11,7 +11,7 @@ int kmain() {
     // char num1, num2;
     char *st;
     int gdb_loop = 1;
-    /*for (i = 0; i < 5; i++) {
+    /* for (i = 0; i < 5; i++) {
         for (j = 0; j < 10; j++) {
             num1 = TO_CHAR(i);
             num2 = TO_CHAR(j);
@@ -32,8 +32,10 @@ int kmain() {
     printk("uint hex of 28 is: %x, max: %x \n", 28, UINT_MAX);
     printk("unsigned char test: %c, emoji: %c \n", '&', '🥝');
     printk("pointer test: %p, string test: %s \n", &st, st);
-    printk("Error tests %O %% %x % ds %");
-    st = "";
+    printk("Error tests %O %i %x % ds %");
     printk("\nempty len: %lu\n", strlen(st));
+    VGA_set_color(VGA_WHITE, VGA_BLUE);
+    printk("New color!\n");
+    st = "";
     return 0;
 }

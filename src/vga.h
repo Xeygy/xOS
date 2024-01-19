@@ -23,5 +23,6 @@ typedef enum {
 void VGA_clear(void);
 void VGA_display_char(char c);
 void VGA_display_str(const char *p);
+void VGA_set_color(vga_color_t fg, vga_color_t bg);
 
 #endif
