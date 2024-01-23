@@ -1,6 +1,7 @@
 #include "vga.h"
 #include "string.h"
 #include "print.h"
+#include "ps2.h"
 #include <limits.h>
 
 #define TO_CHAR(i) (i % 10 + 48)
@@ -35,7 +36,9 @@ int kmain() {
     printk("Error tests %O %i %x % ds %");
     printk("\nempty len: %lu\n", strlen(st));
     VGA_set_color(VGA_WHITE, VGA_BLUE);
-    printk("New color!\n");
+    printk("PS/2 stuff:\n");
+    //while(gdb_loop);
+    init_ps2();
     st = "";
     return 0;
 }
