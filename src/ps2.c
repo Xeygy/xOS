@@ -26,21 +26,93 @@ static inline void outb(uint16_t port, uint8_t val);
 static inline uint8_t inb(uint16_t port);
 static inline void to_ccb(PS2_ccb *ccb, uint8_t value);
 static inline uint8_t from_ccb(PS2_ccb *ccb);
+static int init_controller();
+static int init_keyb();
+
+static int init_ctlr_success, ready_to_poll; 
+
+/* 
+    sets up ps2 controller and keyboard on port 1
+    returns 0 on success, 
+*/
+int init_ps2() {
+    int res;
+    if (!init_ctlr_success && (res = init_controller()))
+        return res;
+    init_ctlr_success = 1;
+    if (res = init_keyb())
+        return res;
+    ready_to_poll = 1;
+    return 0;
+}
 
 /* poll the ps2 device */
-/*static char ps2_poll_read(void)
+/*static*/ char ps2_poll_read(void)
 {
-    char status = inb(PS2_STATUS);
-    while (!(status & PS2_STATUS_OUTPUT))
-        status = inb(PS2_STATUS);
-    return inb(PS2_DATA);
+    char res;
+    // check if initialization failed
+    if (ready_to_poll || init_ps2()) {
+        WAIT_FOR_OUTPUT;
+        res = inb(PS2_DATA);
+        printk("Got %x\n", res);
+        return res;
+    }
+    return '\0';
 }
-*/
-/* 
-    set up ps2 controller
+
+/*
+    Sets up keyboard on port 1
     returns 0 on success, other on failure
 */
-/*static*/ int init_ps2() {
+static int init_keyb() {
+    uint8_t test_res;
+    if (!init_ctlr_success) 
+        return 1;
+    // enable device on port 1
+    outb(PS2_CMD, 0xAE);
+    // reset device
+    WAIT_FOR_EMPTY_IN;
+    outb(PS2_DATA, 0xFF);
+    WAIT_FOR_OUTPUT;
+    test_res = inb(PS2_DATA);   
+    if (test_res != 0xFA) {
+        printk("PS/2 port 1 device reset failed, expected 0xFA, got %hx\n", test_res);
+        return 1;
+    } else {
+        printk("PS/2 port 1 device reset success! got %hx\n", test_res);
+    }  
+
+    // set scancode to 2 (default)
+    WAIT_FOR_EMPTY_IN;
+    outb(PS2_DATA, 0xF0);
+    WAIT_FOR_EMPTY_IN;
+    outb(PS2_DATA, 0x02);
+    // check that it's 2
+    WAIT_FOR_EMPTY_IN;
+    outb(PS2_DATA, 0xF0);
+    WAIT_FOR_EMPTY_IN;
+    outb(PS2_DATA, 0x00);
+    WAIT_FOR_OUTPUT;
+    do {
+        test_res = inb(PS2_DATA);
+    }
+    while (test_res == 0xfa);
+    if (test_res != 0x02) {
+        printk("failed to set scancode 2, expected 0x02, got %hx\n", test_res);
+        return 1;
+    } else {
+        printk("set scancode 2 success! got %hx\n", test_res);
+    }  
+    return 0;
+}
+
+/* 
+    set up ps2 controller, leaves both ports disabled
+    returns 0 on success, other on failure
+    following steps from 
+    https://wiki.osdev.org/%228042%22_PS/2_Controller#Initialising_the_PS.2F2_Controller
+*/
+static int init_controller() {
     PS2_ccb ccb;
     int is_dual_channel;
     uint8_t test_res;
@@ -72,6 +144,7 @@ static inline uint8_t from_ccb(PS2_ccb *ccb);
     test_res = inb(PS2_DATA);
     if (test_res != 0x55) {
         printk("PS/2 self test failed, expected 0x55, got %hx\n", test_res);
+        return 1;
     } else {
         printk("PS/2 self test success! got %hx\n", test_res);
     }
@@ -83,6 +156,7 @@ static inline uint8_t from_ccb(PS2_ccb *ccb);
     test_res = inb(PS2_DATA);   
     if (test_res != 0x00) {
         printk("PS/2 port 1 test failed, expected 0x00, got %hx\n", test_res);
+        return 1;
     } else {
         printk("PS/2 port 1 test success! got %hx\n", test_res);
     } 
@@ -95,37 +169,6 @@ static inline uint8_t from_ccb(PS2_ccb *ccb);
             printk("PS/2 port 2 test failed, expected 0x00, got %hx\n", test_res);
         } else {
             printk("PS/2 port 2 test success! got %hx\n", test_res);
-        } 
-    }
-
-    // enable devices
-    // port 1
-    outb(PS2_CMD, 0xAE);
-    // port 2
-    if (is_dual_channel) {
-        outb(PS2_CMD, 0xA8);
-    }
-
-    // reset devices
-    WAIT_FOR_EMPTY_IN;
-    outb(PS2_DATA, 0xFF);
-    WAIT_FOR_OUTPUT;
-    test_res = inb(PS2_DATA);   
-    if (test_res != 0xFA) {
-        printk("PS/2 port 1 device reset failed, expected 0xFA, got %hx\n", test_res);
-    } else {
-        printk("PS/2 port 1 device reset success! got %hx\n", test_res);
-    }  
-    if (is_dual_channel) {
-        outb(PS2_CMD, 0x64);
-        WAIT_FOR_EMPTY_IN;
-        outb(PS2_DATA, 0xFF);
-        WAIT_FOR_OUTPUT;
-        test_res = inb(PS2_DATA);   
-        if (test_res != 0xFA) {
-            printk("PS/2 port 2 device reset failed, expected 0xFA, got %hx\n", test_res);
-        } else {
-            printk("PS/2 port 2 device reset success! got %hx\n", test_res);
         } 
     }
     return 0;

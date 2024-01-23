@@ -38,7 +38,9 @@ int kmain() {
     VGA_set_color(VGA_WHITE, VGA_BLUE);
     printk("PS/2 stuff:\n");
     //while(gdb_loop);
-    init_ps2();
+    while (1) {
+        ps2_poll_read();
+    }
     st = "";
     return 0;
 }
