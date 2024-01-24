@@ -14,6 +14,7 @@ static int cursor = 0;
 static unsigned char color = FG(VGA_WHITE) | BG(VGA_BROWN);
 
 void scroll();
+void set_cursor(int offset);
 
 /* 
     Clears the screen.
@@ -49,6 +50,7 @@ void VGA_display_char(char c) {
         if ( (cursor % width) < (width - 1))
             cursor++; 
     }
+    set_cursor(cursor);
 }
 
 /*
@@ -82,4 +84,22 @@ void scroll() {
         memcpy(curr_r, next_r, width * sizeof(unsigned short)); 
     }
     memset(next_r, 0, width * sizeof(unsigned short));
+}
+
+static inline void outb(int port, char val) {
+      asm volatile ( "outb %0, %1" 
+                    : 
+                    : "a"(val), "Nd"(port) );
+}
+
+/*
+    sets cursor position at location.
+    see: https://wiki.osdev.org/Text_Mode_Cursor#Moving_the_Cursor_2
+*/
+void set_cursor(int offset)
+{
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, (char) (offset & 0xFF));
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (char) ((offset >> 8) & 0xFF));
 }
