@@ -9,7 +9,7 @@
 
 static unsigned short *vgaBuff = (unsigned short*)VGA_BASE;
 static int width = 80;
-static int height = 20;
+static int height = 25;
 static int cursor = 0;
 static unsigned char color = FG(VGA_WHITE) | BG(VGA_BROWN);
 
@@ -79,7 +79,7 @@ void scroll() {
     for (r = 0; r < height - 1; r++) {
         curr_r = vgaBuff + r * width;
         next_r = vgaBuff + (r + 1) * width;
-        memcpy(curr_r, next_r, width);
+        memcpy(curr_r, next_r, width * sizeof(unsigned short)); 
     }
-    memset(next_r, 0, width);
+    memset(next_r, 0, width * sizeof(unsigned short));
 }
