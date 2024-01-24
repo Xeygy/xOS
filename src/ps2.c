@@ -1,5 +1,5 @@
-typedef unsigned char uint8_t;
-typedef unsigned int uint16_t;
+#include "stdint.h"
+#include "print.h"
 
 #define PS2_DATA  0x60
 #define PS2_CMD 0x64
@@ -80,7 +80,7 @@ static int init_ps2() {
         return error;
     init_ctlr_success = 1;
     printk("scodes %lu\n", sizeof(scodes2));
-    if (error = init_keyb())
+    if ((error = init_keyb()))
         return error;
     ready_to_poll = 1;
     return 0;
