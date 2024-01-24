@@ -31,6 +31,8 @@ static inline void to_ccb(PS2_ccb *ccb, uint8_t value);
 static inline uint8_t from_ccb(PS2_ccb *ccb);
 static int init_controller();
 static int init_keyb();
+static int init_ps2();
+static char ps2_poll_read();
 
 static int init_ctlr_success, ready_to_poll, capslock_on; 
 /* scan code set 2 */
@@ -54,28 +56,47 @@ static char scodes2_up[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '~', 0,
 
 /* 0 if scan code is depressed */
 static char scodes_down[sizeof(scodes2)];
+
+/* Polls the keyboard for the next character */
+int getchar() {
+    int error;
+    if ((error = init_ps2())) {
+        printk("Couldn't set up ps\\2 controller: %i", error);
+        return 0;
+    } else {
+        return ps2_poll_read();
+    }
+}
+
 /* 
     sets up ps2 controller and keyboard on port 1
-    returns 0 on success, 
+    returns 0 on success, other on failure
 */
-int init_ps2() {
-    int res;
-    if (!init_ctlr_success && (res = init_controller()))
-        return res;
+static int init_ps2() {
+    int error;
+    if (ready_to_poll)
+        return 0;
+    if (!init_ctlr_success && (error = init_controller()))
+        return error;
     init_ctlr_success = 1;
     printk("scodes %lu\n", sizeof(scodes2));
-    if (res = init_keyb())
-        return res;
+    if (error = init_keyb())
+        return error;
     ready_to_poll = 1;
     return 0;
 }
 
 /* poll the ps2 device */
-/*static*/ char ps2_poll_read(void)
+static char ps2_poll_read()
 {
     uint8_t res;
+    int error;
+    char output = 0;
     // init_ps2 if not initialized
-    if (ready_to_poll || init_ps2()) {
+    if (!ready_to_poll && (error = init_ps2())) {
+        printk("Couldn't set up ps\\2 controller: %i", error);
+    }
+    while (output == 0) {
         WAIT_FOR_OUTPUT;
         res = inb(PS2_DATA);
 
@@ -90,15 +111,13 @@ int init_ps2() {
         } else if (res < sizeof(scodes2) && 
                     !scodes_down[res]) { // only print char if key has been released 
             if (scodes_down[LSHIFT] || scodes_down[RSHIFT] || capslock_on) 
-                printk("Got %c\n", scodes2_up[res]);
+                output = scodes2_up[res];
             else
-                printk("Got %c\n", scodes2[res]);
+                output = scodes2[res];
             scodes_down[res] = 1;
         }
-        
-        return res;
     }
-    return '\0';
+    return output;
 }
 
 /*

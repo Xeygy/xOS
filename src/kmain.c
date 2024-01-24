@@ -39,7 +39,7 @@ int kmain() {
     printk("PS/2 stuff:\n");
     //while(gdb_loop);
     while (1) {
-        ps2_poll_read();
+        printk("%c", getchar());
     }
     st = "";
     return 0;
