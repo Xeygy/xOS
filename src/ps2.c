@@ -36,9 +36,11 @@ static char scodes2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '`', 0,
                         0, 'c', 'x', 'd', 'e', '4', '3', 0, 0, ' ', 'v', 'f', 't', 'r', '5', 0,
                         0, 'n', 'b', 'h', 'g', 'y', '6', 0 ,0, 0, 'm', 'j', 'u', '7', '8', 0,
                         0, ',', 'k', 'i', 'o', '0', '9', 0, 0, '.', '/', 'l', ';', 'p', '-', 0,
-                        0, 0, '\'', 0, '[', '=', 0, 0, 0, 0, 0, ']', 0, '\\', 0, 0,
+                        0, 0, '\'', 0, '[', '=', 0, 0, 0, 0, '\n', ']', 0, '\\', 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
                         '0', '.', '2', '5', '6', '8', 0, 0, 0, '+', '3', '-', '*', '9', 0, 0};
+/* 0 if scan code is depressed */
+static char scodes_down[sizeof(scodes2)];
 /* 
     sets up ps2 controller and keyboard on port 1
     returns 0 on success, 
@@ -58,13 +60,24 @@ int init_ps2() {
 /* poll the ps2 device */
 /*static*/ char ps2_poll_read(void)
 {
-    char res;
+    uint8_t res;
     // init_ps2 if not initialized
     if (ready_to_poll || init_ps2()) {
         WAIT_FOR_OUTPUT;
         res = inb(PS2_DATA);
-        if (res < sizeof(scodes2))
+
+        
+        if (res == 0xF0) {
+            // handle releases 
+            WAIT_FOR_OUTPUT;
+            res = inb(PS2_DATA);
+            if (res < sizeof(scodes2))
+                scodes_down[res] = 0;
+        } else if (res < sizeof(scodes2) && !scodes_down[res]) {
+            // only print char if key has been released
             printk("Got %c\n", scodes2[res]);
+            scodes_down[res] = 1;
+        }
         
         return res;
     }
