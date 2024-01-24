@@ -9,6 +9,9 @@ typedef unsigned int uint16_t;
 #define WAIT_FOR_OUTPUT while(!(inb(PS2_STATUS) & PS2_STATUS_OUTPUT))
 #define WAIT_FOR_EMPTY_IN  while(inb(PS2_STATUS) & PS2_STATUS_INPUT)
 
+#define LSHIFT  0x12 // scan code set 2
+#define RSHIFT  0x59 // scan code set 2
+#define CAPSLOCK  0x58 // scan code set 2
  
 // controller config byte
 typedef struct PS2_ccb {
@@ -29,7 +32,7 @@ static inline uint8_t from_ccb(PS2_ccb *ccb);
 static int init_controller();
 static int init_keyb();
 
-static int init_ctlr_success, ready_to_poll; 
+static int init_ctlr_success, ready_to_poll, capslock_on; 
 /* scan code set 2 */
 static char scodes2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '`', 0,
                         0, 0, 0, 0, 0, 'q', '1', 0, 0, 0, 'z', 's', 'a', 'w', '2', 0,
@@ -39,6 +42,16 @@ static char scodes2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '`', 0,
                         0, 0, '\'', 0, '[', '=', 0, 0, 0, 0, '\n', ']', 0, '\\', 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
                         '0', '.', '2', '5', '6', '8', 0, 0, 0, '+', '3', '-', '*', '9', 0, 0};
+/* uppercase values */
+static char scodes2_up[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '~', 0,
+                        0, 0, 0, 0, 0, 'Q', '!', 0, 0, 0, 'Z', 'S', 'A', 'W', '@', 0,
+                        0, 'C', 'X', 'D', 'E', '$', '#', 0, 0, ' ', 'V', 'F', 'T', 'R', '%', 0,
+                        0, 'N', 'B', 'H', 'G', 'Y', '^', 0 ,0, 0, 'M', 'J', 'U', '&', '*', 0,
+                        0, '<', 'K', 'I', 'O', ')', '(', 0, 0, '>', '?', 'L', ':', 'P', '_', 0,
+                        0, 0, '"', 0, '{', '+', 0, 0, 0, 0, '\n', '}', 0, '|', 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
+                        '0', '.', '2', '5', '6', '8', 0, 0, 0, '+', '3', '-', '*', '9', 0, 0};
+
 /* 0 if scan code is depressed */
 static char scodes_down[sizeof(scodes2)];
 /* 
@@ -66,16 +79,20 @@ int init_ps2() {
         WAIT_FOR_OUTPUT;
         res = inb(PS2_DATA);
 
-        
         if (res == 0xF0) {
             // handle releases 
             WAIT_FOR_OUTPUT;
             res = inb(PS2_DATA);
+            if (res == CAPSLOCK) 
+                capslock_on = !capslock_on;
             if (res < sizeof(scodes2))
                 scodes_down[res] = 0;
-        } else if (res < sizeof(scodes2) && !scodes_down[res]) {
-            // only print char if key has been released
-            printk("Got %c\n", scodes2[res]);
+        } else if (res < sizeof(scodes2) && 
+                    !scodes_down[res]) { // only print char if key has been released 
+            if (scodes_down[LSHIFT] || scodes_down[RSHIFT] || capslock_on) 
+                printk("Got %c\n", scodes2_up[res]);
+            else
+                printk("Got %c\n", scodes2[res]);
             scodes_down[res] = 1;
         }
         
