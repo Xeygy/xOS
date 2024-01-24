@@ -1,5 +1,6 @@
 #include "stdint.h"
 #include "print.h"
+#include "asm.h"
 
 #define PS2_DATA  0x60
 #define PS2_CMD 0x64
@@ -25,8 +26,6 @@ typedef struct PS2_ccb {
     uint8_t zero2:1;
 } __attribute__((packed)) PS2_ccb;
 
-static inline void outb(uint16_t port, uint8_t val);
-static inline uint8_t inb(uint16_t port);
 static inline void to_ccb(PS2_ccb *ccb, uint8_t value);
 static inline uint8_t from_ccb(PS2_ccb *ccb);
 static int init_controller();
@@ -234,17 +233,6 @@ static int init_controller() {
     return 0;
 }
 
-/*
-    recieves 8 bits from a i/o port
-*/
-static inline uint8_t inb(uint16_t port) {
-      uint8_t ret;
-      asm volatile ( "inb %1, %0"
-                    : "=a"(ret)
-                    : "Nd"(port) );
-return ret; 
-}
-
 /* 
     fills the given ccb with the values from value 
 */
@@ -270,12 +258,4 @@ static inline uint8_t from_ccb(PS2_ccb *ccb)
         | ccb->port2_clock   << 5
         | ccb->port1_trans   << 6
         | ccb->zero2         << 7;
-}
-/*
-    sends 8 bits to an i/o port
-*/
-static inline void outb(uint16_t port, uint8_t val) {
-      asm volatile ( "outb %0, %1" 
-                    : 
-                    : "a"(val), "Nd"(port) );
 }
