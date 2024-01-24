@@ -30,7 +30,15 @@ static int init_controller();
 static int init_keyb();
 
 static int init_ctlr_success, ready_to_poll; 
-
+/* scan code set 2 */
+static char scodes2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '`', 0,
+                        0, 0, 0, 0, 0, 'q', '1', 0, 0, 0, 'z', 's', 'a', 'w', '2', 0,
+                        0, 'c', 'x', 'd', 'e', '4', '3', 0, 0, ' ', 'v', 'f', 't', 'r', '5', 0,
+                        0, 'n', 'b', 'h', 'g', 'y', '6', 0 ,0, 0, 'm', 'j', 'u', '7', '8', 0,
+                        0, ',', 'k', 'i', 'o', '0', '9', 0, 0, '.', '/', 'l', ';', 'p', '-', 0,
+                        0, 0, '\'', 0, '[', '=', 0, 0, 0, 0, 0, ']', 0, '\\', 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
+                        '0', '.', '2', '5', '6', '8', 0, 0, 0, '+', '3', '-', '*', '9', 0, 0};
 /* 
     sets up ps2 controller and keyboard on port 1
     returns 0 on success, 
@@ -40,6 +48,7 @@ int init_ps2() {
     if (!init_ctlr_success && (res = init_controller()))
         return res;
     init_ctlr_success = 1;
+    printk("scodes %lu\n", sizeof(scodes2));
     if (res = init_keyb())
         return res;
     ready_to_poll = 1;
@@ -50,11 +59,13 @@ int init_ps2() {
 /*static*/ char ps2_poll_read(void)
 {
     char res;
-    // check if initialization failed
+    // init_ps2 if not initialized
     if (ready_to_poll || init_ps2()) {
         WAIT_FOR_OUTPUT;
         res = inb(PS2_DATA);
-        printk("Got %x\n", res);
+        if (res < sizeof(scodes2))
+            printk("Got %c\n", scodes2[res]);
+        
         return res;
     }
     return '\0';
