@@ -3,7 +3,7 @@
 /*
     Sets the block of memory at dst to 
     n copies of value c. c is treated as an
-    unsigned char.
+    unsigned char. Returns dst.
 */
 void *memset(void *dst, int c, size_t n) {
     char *p;
@@ -12,11 +12,12 @@ void *memset(void *dst, int c, size_t n) {
     for (i = 0; i < n; i++) {
         p[i] = (unsigned char) c;
     }
+    return dst;
 }
 
 /*
     Copies n bytes from src to dest. Does not check for 
-    overlap or overflow.    
+    overlap or overflow. Returns dest. 
 */
 void *memcpy(void *dest, const void *src, size_t n) {
     char *dp, *sp;
@@ -26,6 +27,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
     for (i = 0; i < n; i++) {
         dp[i] = sp[i];
     }
+    return dest;
 }
 
 /*

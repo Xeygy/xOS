@@ -8,7 +8,7 @@
 
 /* kernel main function */
 int kmain() {
-    int gdb_loop = 1;
+    // int gdb_loop = 1;
     //while(gdb_loop);
     while (1) {
         printk("%c", getchar());
