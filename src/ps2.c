@@ -1,6 +1,7 @@
 #include "stdint.h"
 #include "print.h"
 #include "asm.h"
+#include "string.h"
 
 #define PS2_DATA  0x60
 #define PS2_CMD 0x64
@@ -26,8 +27,6 @@ typedef struct PS2_ccb {
     uint8_t zero2:1;
 } __attribute__((packed)) PS2_ccb;
 
-static inline void to_ccb(PS2_ccb *ccb, uint8_t value);
-static inline uint8_t from_ccb(PS2_ccb *ccb);
 static int init_controller();
 static int init_keyb();
 static int init_ps2();
@@ -185,7 +184,8 @@ static int init_controller() {
 
     // set the controller configuration byte
     outb(PS2_CMD, 0x20); 
-    to_ccb(&ccb, inb(PS2_DATA));
+    test_res = inb(PS2_DATA);
+    memcpy(&ccb, &test_res, 1); // copy in byte to ccb
     
     // disable interrupts and translation
     ccb.port1_irq = ccb.port2_irq = ccb.port1_trans = 0;
@@ -194,7 +194,7 @@ static int init_controller() {
     // write to the ccb
     WAIT_FOR_EMPTY_IN;
     outb(PS2_CMD, 0x60);
-    outb(PS2_DATA, from_ccb(&ccb)); 
+    outb(PS2_DATA, *(uint8_t *) &ccb); // onvert ccb to 1 byte
 
     // perform controller self test
     outb(PS2_CMD, 0xAA);
@@ -233,29 +233,3 @@ static int init_controller() {
     return 0;
 }
 
-/* 
-    fills the given ccb with the values from value 
-*/
-static inline void to_ccb(PS2_ccb *ccb, uint8_t value)
-{
-    ccb->port1_irq        = value & 1;
-    ccb->port2_irq        = value >> 1 & 1;
-    ccb->system_flag      = value >> 2 & 1;
-    ccb->zero1            = value >> 3 & 1;
-    ccb->port1_clock      = value >> 4 & 1;
-    ccb->port2_clock      = value >> 5 & 1;
-    ccb->port1_trans      = value >> 6 & 1;
-    ccb->zero2            = value >> 7 & 1;
-}
-
-static inline uint8_t from_ccb(PS2_ccb *ccb)
-{
-    return ccb->port1_irq       
-        | ccb->port2_irq     << 1
-        | ccb->system_flag   << 2
-        | ccb->zero1         << 3
-        | ccb->port1_clock   << 4
-        | ccb->port2_clock   << 5
-        | ccb->port1_trans   << 6
-        | ccb->zero2         << 7;
-}
