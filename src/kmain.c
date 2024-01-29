@@ -1,15 +1,13 @@
-#include "vga.h"
-#include "string.h"
 #include "print.h"
 #include "ps2.h"
+#include "interrupts.h"
 #include <limits.h>
-
-#define TO_CHAR(i) (i % 10 + 48)
 
 /* kernel main function */
 int kmain() {
     // int gdb_loop = 1;
     //while(gdb_loop);
+    enable_interrupts();
     while (1) {
         printk("%c", getchar());
     }
