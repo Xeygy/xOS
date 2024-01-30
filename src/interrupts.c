@@ -29,8 +29,14 @@
 #define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
 #define ICW4_SFNM	0x10		/* Special fully nested (not) */
 
+#define GDT_OFFSET 0x08 /* not entirely sure where this comes from? */
+#define IDT_INT_GATE 0xE /* runs with interrupts disabled */
+#define IDT_TRAP_GATE 0xF /* runs with interrupts enabled*/
+#define IDT_NUM_ENTRIES 256
+extern void* isr_stub_table[];
+
 // Interrupt Descriptor Table Entry
-typedef struct IdtEntry {
+typedef struct idt_entry_t {
     uint16_t tgtOffset0;
 	uint16_t tgtSelector;
 	uint16_t ist:3;
@@ -42,23 +48,38 @@ typedef struct IdtEntry {
 	uint16_t tgtOffset1;
 	uint32_t tgtOffset2;
     uint32_t reserved1;
-} __attribute__((packed)) IdtEntry;
+} __attribute__((packed)) idt_entry_t;
 
-static IdtEntry idt[256];
+//idt register
+typedef struct {
+	uint16_t	limit;
+	uint64_t	base;
+} __attribute__((packed)) idtr_t;
+
+static idt_entry_t idt[IDT_NUM_ENTRIES];
+static idtr_t idtr; 
 
 static void PIC_remap(int offset1, int offset2);
-void divide_by_zero_handler(int errorcode);
-static void addFuncToEntry(IdtEntry *entry, void (*handler) (int));
-
+void generic_handler(int errorcode);
+static void setupEntry(idt_entry_t *entry, void * handler);
 
 int enable_interrupts() {
     // int gdb=1;
     // while(gdb);
-    PIC_remap(0x20, 0x2F);
-	addFuncToEntry(&idt[0], divide_by_zero_handler);
-	idt[0].present = 1;
+	int i;
+	PIC_remap(0x20, 0x2F);
+	outb(PIC1_DATA, 0xfd); // only enable keyb interrupts
+    outb(PIC2_DATA, 0xff);
+
+	idtr.base = (uintptr_t)&idt[0];
+	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
+	for (i = 0; i<32; i++) {
+		setupEntry(&idt[i], isr_stub_table[i]);
+	}
+
 	// load interrupts
-	lidt(idt);
+	lidt(&idtr);
+	sti();
     return 0;
 }
  
@@ -94,13 +115,15 @@ static void PIC_remap(int offset1, int offset2)
 	sets the offset of the entry to the address of the given
 	handler function
 */
-static void addFuncToEntry(IdtEntry *entry, void (*handler) (int)) {
+static void setupEntry(idt_entry_t *entry, void *handler) {
 	uint64_t handCast = (uint64_t)handler;
 	entry->tgtOffset0 = handCast & 0xFFFF;
 	entry->tgtOffset1 = (handCast >> 16) & 0xFFFF;
 	entry->tgtOffset2 = (handCast >> 32) & 0xFFFFFFFF;
+	entry->present = 1;
+	entry->type = IDT_INT_GATE;
 }
 
-void divide_by_zero_handler(int errorcode) {
-	printk("DIVIDED BY ZERO");
+void generic_handler(int errorcode) {
+	asm volatile ("cli; hlt");
 }

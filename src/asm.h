@@ -28,9 +28,23 @@ static inline uint8_t inb(uint16_t port) {
     interrupt descriptor table register
     https://stackoverflow.com/a/43577960
 */
-static inline void lidt(void* idt) {
+static inline void lidt(void* idtr) {
     asm volatile ("lidt %0" 
                 :
-                : "m"(*idt));
+                : "m"(*idtr));
+}
+
+/*
+    enables interrupts (set interrupt flag)
+*/
+static inline void sti(void) {
+    asm volatile ("sti");
+}
+
+/*
+    disables interrupts (clear interrupt flag)
+*/
+static inline void cli(void) {
+    asm volatile ("cli");
 }
 #endif
