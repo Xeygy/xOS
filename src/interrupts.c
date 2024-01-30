@@ -1,4 +1,5 @@
 #include "interrupts.h"
+#include "print.h"
 #include "asm.h"
 
 /* 
@@ -28,13 +29,30 @@
 #define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
 #define ICW4_SFNM	0x10		/* Special fully nested (not) */
 
-void PIC_remap(int offset1, int offset2);
+// Interrupt Descriptor Table Entry
+typedef struct IdtEntry {
+    uint32_t tgtOffset0:16;
+	uint32_t tgtSelector:16;
+	uint32_t options:16;
+	uint32_t tgtOffset1:16;
+	uint32_t tgtOffset2;
+    uint32_t reserved;
+} __attribute__((packed)) IdtEntry;
+
+static IdtEntry idt[256];
+
+static void PIC_remap(int offset1, int offset2);
+void divide_by_zero_handler(int errorcode);
+static void addFuncToEntry(IdtEntry *entry, void (*handler) (int));
 
 
 int enable_interrupts() {
     // int gdb=1;
     // while(gdb);
     PIC_remap(0x20, 0x2F);
+	addFuncToEntry(&idt[0], divide_by_zero_handler);
+	// load interrupts
+	lidt(idt);
     return 0;
 }
  
@@ -45,7 +63,7 @@ arguments:
 	offset2 - same for slave PIC: offset2..offset2+7
     https://wiki.osdev.org/PIC#Initialisation
 */
-void PIC_remap(int offset1, int offset2)
+static void PIC_remap(int offset1, int offset2)
 {
 	uint8_t a1, a2;
  
@@ -64,4 +82,22 @@ void PIC_remap(int offset1, int offset2)
  
 	outb(PIC1_DATA, a1);   // restore saved masks.
 	outb(PIC2_DATA, a2);
+}
+
+/*
+	sets the offset of the entry to the address of the given
+	handler function
+*/
+static void addFuncToEntry(IdtEntry *entry, void (*handler) (int)) {
+	uint64_t mask;
+	mask = (1 << 16) - 1;
+	entry->tgtOffset0 = (uint64_t)handler & mask;
+	mask = mask << 16;
+	entry->tgtOffset1 = ((uint64_t)handler & mask) >> 16;
+	mask = ((1 << 32) - 1) << 32;
+	entry->tgtOffset2 = ((uint64_t)handler & mask) >> 32;
+}
+
+void divide_by_zero_handler(int errorcode) {
+	printk("DIVIDED BY ZERO");
 }

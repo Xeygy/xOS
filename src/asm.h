@@ -22,4 +22,15 @@ static inline uint8_t inb(uint16_t port) {
                 : "Nd"(port) );
     return ret; 
 }
+
+/*
+    loads the address pointed to by idt into the 
+    interrupt descriptor table register
+    https://stackoverflow.com/a/43577960
+*/
+static inline void lidt(void* idt) {
+    asm volatile ("lidt %0" 
+                :
+                : "m"(*idt));
+}
 #endif
