@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include "vga.h"
 #include "string.h"
+#include "asm.h"
 
 #define VGA_BASE 0xb8000
 #define FG(color) (color)
@@ -84,12 +85,6 @@ void scroll() {
         memcpy(curr_r, next_r, width * sizeof(unsigned short)); 
     }
     memset(next_r, 0, width * sizeof(unsigned short));
-}
-
-static inline void outb(int port, char val) {
-      asm volatile ( "outb %0, %1" 
-                    : 
-                    : "a"(val), "Nd"(port) );
 }
 
 /*

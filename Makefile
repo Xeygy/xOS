@@ -74,7 +74,7 @@ $(kernel): $(assembly_object_files) $(linker_script) $(c_obj_files)
 
 # TODO: readd -Werror after divide by 0 testing
 build/arch/$(arch)/%.o: src/%.c 
-	x86_64-elf-gcc $< -c -g -MMD -Wall -o $@
+	x86_64-elf-gcc $< -c -g -MMD -Wall -o $@ -ffreestanding
 
 # compile assembly files
 build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm

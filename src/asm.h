@@ -1,7 +1,7 @@
 #ifndef ASM_H
 #define ASM_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 /*
     sends 8 bits to an i/o port

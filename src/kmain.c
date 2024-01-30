@@ -1,7 +1,7 @@
 #include "print.h"
 #include "ps2.h"
 #include "interrupts.h"
-#include "stdint.h"
+#include <stdint.h>
 #include <limits.h>
 
 /* kernel main function */
