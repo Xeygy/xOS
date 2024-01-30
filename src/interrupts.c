@@ -31,12 +31,17 @@
 
 // Interrupt Descriptor Table Entry
 typedef struct IdtEntry {
-    uint32_t tgtOffset0:16;
-	uint32_t tgtSelector:16;
-	uint32_t options:16;
-	uint32_t tgtOffset1:16;
+    uint16_t tgtOffset0;
+	uint16_t tgtSelector;
+	uint16_t ist:3;
+	uint16_t reserved0:5;
+	uint16_t type:4;
+	uint16_t zero:1;
+	uint16_t dpl:2;
+	uint16_t present:1;
+	uint16_t tgtOffset1;
 	uint32_t tgtOffset2;
-    uint32_t reserved;
+    uint32_t reserved1;
 } __attribute__((packed)) IdtEntry;
 
 static IdtEntry idt[256];
@@ -51,6 +56,7 @@ int enable_interrupts() {
     // while(gdb);
     PIC_remap(0x20, 0x2F);
 	addFuncToEntry(&idt[0], divide_by_zero_handler);
+	idt[0].present = 1;
 	// load interrupts
 	lidt(idt);
     return 0;
@@ -89,13 +95,10 @@ static void PIC_remap(int offset1, int offset2)
 	handler function
 */
 static void addFuncToEntry(IdtEntry *entry, void (*handler) (int)) {
-	uint64_t mask;
-	mask = (1 << 16) - 1;
-	entry->tgtOffset0 = (uint64_t)handler & mask;
-	mask = mask << 16;
-	entry->tgtOffset1 = ((uint64_t)handler & mask) >> 16;
-	mask = ((1 << 32) - 1) << 32;
-	entry->tgtOffset2 = ((uint64_t)handler & mask) >> 32;
+	uint64_t handCast = (uint64_t)handler;
+	entry->tgtOffset0 = handCast & 0xFFFF;
+	entry->tgtOffset1 = (handCast >> 16) & 0xFFFF;
+	entry->tgtOffset2 = (handCast >> 32) & 0xFFFFFFFF;
 }
 
 void divide_by_zero_handler(int errorcode) {
