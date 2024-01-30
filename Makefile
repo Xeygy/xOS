@@ -72,6 +72,7 @@ $(iso): $(kernel) $(grub_cfg)
 $(kernel): $(assembly_object_files) $(linker_script) $(c_obj_files)
 	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(c_obj_files)
 
+# TODO: readd -Werror after divide by 0 testing
 build/arch/$(arch)/%.o: src/%.c 
 	x86_64-elf-gcc $< -c -g -MMD -Wall -o $@
 
