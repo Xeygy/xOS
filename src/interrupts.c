@@ -1,6 +1,7 @@
 #include "interrupts.h"
 #include "print.h"
 #include "asm.h"
+#include "isr.h"
 
 /* 
 * much of this code for interrupts 
@@ -68,14 +69,15 @@ int enable_interrupts() {
     // while(gdb);
 	int i;
 	PIC_remap(0x20, 0x2F);
-	outb(PIC1_DATA, 0xfd); // only enable keyb interrupts
-    outb(PIC2_DATA, 0xff);
+	//outb(PIC1_DATA, 0xfd); // only enable keyb interrupts
+    //outb(PIC2_DATA, 0xff);
 
+	for (i = 0; i<IDT_NUM_ENTRIES; i++) {
+		setupEntry(&idt[i], isr0);
+	}
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
-	for (i = 0; i<32; i++) {
-		setupEntry(&idt[i], isr_stub_table[i]);
-	}
+	
 
 	// load interrupts
 	lidt(&idtr);
