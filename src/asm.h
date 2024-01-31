@@ -23,12 +23,17 @@ static inline uint8_t inb(uint16_t port) {
     return ret; 
 }
 
+//idt register
+typedef struct {
+	uint16_t	limit;
+	uint64_t	base;
+} __attribute__((packed)) idtr_t;
 /*
     loads the address pointed to by idt into the 
     interrupt descriptor table register
     https://stackoverflow.com/a/43577960
 */
-static inline void lidt(void* idtr) {
+static inline void lidt(idtr_t* idtr) {
     asm volatile ("lidt %0" 
                 :
                 : "m"(*idtr));

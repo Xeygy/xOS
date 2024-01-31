@@ -10,7 +10,7 @@ NUM_ISRs = 256
 # DF, TS, NP, SS, GP, PF, AC
 ISR_WITH_ERROR_CODE = [8,10,11,12,13,14,17]
 
-f = open("isr.asm", "w")
+f = open("src/arch/x86_64/isr.asm", "w")
 f.write("extern generic_handler\n\n")
 for i in range(NUM_ISRs):
     f.write(f'global isr{i}\n')
@@ -30,31 +30,31 @@ gen_isr:
     call generic_handler
     
     ;; pop volatile
-    push r11
-    push r10
-    push r9
-    push r8
-    push rdi
-    push rsi
-    push rdx
-    push rcx
-    push rax
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rax
     ;; move error code
-    add rsp, 8     
+    add rsp, $8     
     iretq\n\n'''
 )
 
 for i in range(NUM_ISRs):
     f.write(f"isr{i}:\n")
     if i not in ISR_WITH_ERROR_CODE:
-        f.write(f"    sub rsp, 8\n")
-    f.write(f'''    mov rdi, {i}
+        f.write(f"    sub rsp, $8\n")
+    f.write(f'''    mov rdi, ${i}
     jmp gen_isr\n''')
 f.close()
 
 
 # generate header for each of the interrupt labels
-f = open("isr.h", "w")
+f = open("src/isr.h", "w")
 f.write('''#ifndef ISR_H
 #define ISR_H\n''')
 for i in range(NUM_ISRs):

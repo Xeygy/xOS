@@ -14,6 +14,7 @@ int kmain() {
     enable_interrupts();
     while (1) {
         printk("%c", getchar());
+        asm volatile ("int $0x40");
     }
     return 0;
 }

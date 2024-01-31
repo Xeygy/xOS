@@ -36,6 +36,7 @@
 #define IDT_NUM_ENTRIES 256
 extern void* isr_stub_table[];
 
+
 // Interrupt Descriptor Table Entry
 typedef struct idt_entry_t {
     uint16_t tgtOffset0;
@@ -51,36 +52,29 @@ typedef struct idt_entry_t {
     uint32_t reserved1;
 } __attribute__((packed)) idt_entry_t;
 
-//idt register
-typedef struct {
-	uint16_t	limit;
-	uint64_t	base;
-} __attribute__((packed)) idtr_t;
-
 static idt_entry_t idt[IDT_NUM_ENTRIES];
 static idtr_t idtr; 
 
 static void PIC_remap(int offset1, int offset2);
-void generic_handler(int errorcode);
+static void PIC_mask_all();
+void generic_handler(void* error);
 static void setupEntry(idt_entry_t *entry, void * handler);
 
 int enable_interrupts() {
     // int gdb=1;
     // while(gdb);
 	int i;
-	PIC_remap(0x20, 0x2F);
-	//outb(PIC1_DATA, 0xfd); // only enable keyb interrupts
-    //outb(PIC2_DATA, 0xff);
+	PIC_remap(0x20, 0x28);
+	PIC_mask_all();
 
 	for (i = 0; i<IDT_NUM_ENTRIES; i++) {
-		setupEntry(&idt[i], isr0);
+		setupEntry(&idt[i], &isr0);
 	}
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
-	
-
 	// load interrupts
 	lidt(&idtr);
+	
 	sti();
     return 0;
 }
@@ -92,8 +86,7 @@ arguments:
 	offset2 - same for slave PIC: offset2..offset2+7
     https://wiki.osdev.org/PIC#Initialisation
 */
-static void PIC_remap(int offset1, int offset2)
-{
+static void PIC_remap(int offset1, int offset2) {
 	uint8_t a1, a2;
  
 	a1 = inb(PIC1_DATA);                        // save masks
@@ -113,6 +106,11 @@ static void PIC_remap(int offset1, int offset2)
 	outb(PIC2_DATA, a2);
 }
 
+static void PIC_mask_all() {
+	outb(PIC1_DATA, 0xff);
+    outb(PIC2_DATA, 0xff);
+}
+
 /*
 	sets the offset of the entry to the address of the given
 	handler function
@@ -123,9 +121,11 @@ static void setupEntry(idt_entry_t *entry, void *handler) {
 	entry->tgtOffset1 = (handCast >> 16) & 0xFFFF;
 	entry->tgtOffset2 = (handCast >> 32) & 0xFFFFFFFF;
 	entry->present = 1;
+	entry->tgtSelector = GDT_OFFSET;
 	entry->type = IDT_INT_GATE;
 }
 
-void generic_handler(int errorcode) {
-	asm volatile ("cli; hlt");
+void generic_handler(void* error) {
+	while (1) 
+		asm volatile ("cli; hlt");
 }

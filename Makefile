@@ -23,7 +23,7 @@ clean:
 	@rm -r build
 
 run: $(img)
-	@qemu-system-x86_64 -d int -no-reboot -s -drive format=raw,file=$(img) -serial stdio 
+	@qemu-system-x86_64 -d int,cpu_reset -no-reboot -s -drive format=raw,file=$(img) -serial stdio 
 
 # needs another terminal window running `make run`
 gdb:
