@@ -9,13 +9,11 @@
 int kmain() {
     // int gdb_loop = 1;
     //while(gdb_loop);
-    int i;
+    int i,j;
     disable_interrupts();
     printk("%lu %lu %lu" , sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t));
     init_ps2();
     enable_interrupts();
-    for (i = 0;; i = ++i%1000) {
-        printk("ticking%d...\n", i);
-    }
+    while(1);
     return 0;
 }

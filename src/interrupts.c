@@ -154,16 +154,17 @@ static void setupEntry(idt_entry_t *entry, void *handler, uint16_t type) {
 void generic_handler(void* val) {
 	uint64_t isr_num = (unsigned long) val;
 	int gdb = 1;
-	char test;
+	char kb_input;
 	printk("Interrupt 0x%lx\n", isr_num);
 	
 	if (isr_num >= 0x20 && isr_num <= 0x2f) {
 		// is a hardware interrupt
 		switch (isr_num) {
 			case 0x21:
-				while(gdb);
-				test = ps2_poll_read();
-				printk("%c\n", test);
+				//while(gdb);
+				kb_input = ps2_poll_read();
+				if (kb_input)
+					printk("%c\n", kb_input);
 		}
 		PIC_sendEOI(isr_num - 0x20);
 	} else {

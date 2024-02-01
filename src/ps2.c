@@ -30,7 +30,8 @@ typedef struct PS2_ccb {
 static int init_controller();
 static int init_keyb();
 
-static int init_ctlr_success, ready_to_poll, capslock_on; 
+static int init_ctlr_success, ready_to_poll, capslock_on;
+static int released_key;  // true if previous code was 0xF0
 /* scan code set 2 */
 static char scodes2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '`', 0,
                         0, 0, 0, 0, 0, 'q', '1', 0, 0, 0, 'z', 's', 'a', 'w', '2', 0,
@@ -71,7 +72,11 @@ int init_ps2() {
     return 0;
 }
 
-/* poll the ps2 device */
+/* 
+poll the ps2 device, assumes there exists data in the data port 
+(i.e. interrupt driven) 
+returns 0 if not a printable char.
+*/
 char ps2_poll_read()
 {
     uint8_t res;
@@ -80,18 +85,23 @@ char ps2_poll_read()
     // init_ps2 if not initialized
     if (!ready_to_poll && (error = init_ps2())) {
         printk("Couldn't set up ps\\2 controller: %i", error);
+        return 0;
     }
-    WAIT_FOR_OUTPUT;
-    res = inb(PS2_DATA);
+    if (!(inb(PS2_STATUS) & PS2_STATUS_OUTPUT)) {
+        printk("called poll but nothing in ps\\2 data");
+        return 0;
+    }
 
+    res = inb(PS2_DATA);
     if (res == 0xF0) {
-        // handle releases 
-        WAIT_FOR_OUTPUT;
-        res = inb(PS2_DATA);
+        released_key = 1;
+    } else if (released_key) {
+        // handle releases
         if (res == CAPSLOCK) 
             capslock_on = !capslock_on;
         if (res < sizeof(scodes2))
             scodes_down[res] = 0;
+        released_key = 0;
     } else if (res < sizeof(scodes2) && 
                 !scodes_down[res]) { // only print char if key has been released 
         if (scodes_down[LSHIFT] || scodes_down[RSHIFT] || capslock_on) 
