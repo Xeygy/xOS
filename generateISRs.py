@@ -11,10 +11,16 @@ NUM_ISRs = 256
 ISR_WITH_ERROR_CODE = [8,10,11,12,13,14,17]
 
 f = open("src/arch/x86_64/isr.asm", "w")
-f.write("extern generic_handler\n\n")
-for i in range(NUM_ISRs):
-    f.write(f'global isr{i}\n')
+f.write("extern generic_handler\n")
 f.write('''
+global isr_table
+isr_table:
+%assign i 0 
+%rep    256 
+    dq isr%+i ; use DQ for targeting 64-bit
+%assign i i+1 
+%endrep
+
 gen_isr:
     ;; save volatile 
     ;; https://os.phil-opp.com/handling-exceptions/#preserved-and-scratch-registers 
@@ -44,20 +50,11 @@ gen_isr:
     iretq\n\n'''
 )
 
+# write each individual isr
 for i in range(NUM_ISRs):
     f.write(f"isr{i}:\n")
     if i not in ISR_WITH_ERROR_CODE:
         f.write(f"    sub rsp, $8\n")
     f.write(f'''    mov rdi, ${i}
     jmp gen_isr\n''')
-f.close()
-
-
-# generate header for each of the interrupt labels
-f = open("src/isr.h", "w")
-f.write('''#ifndef ISR_H
-#define ISR_H\n''')
-for i in range(NUM_ISRs):
-    f.write(f"extern void* isr{i};\n")
-f.write("#endif\n")
 f.close()

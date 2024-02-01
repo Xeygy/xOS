@@ -1,7 +1,7 @@
 #include "interrupts.h"
 #include "print.h"
 #include "asm.h"
-#include "isr.h"
+extern void* isr_table[]; // from isr.asm
 
 /* 
 * much of this code for interrupts 
@@ -55,10 +55,11 @@ typedef struct idt_entry_t {
 static idt_entry_t idt[IDT_NUM_ENTRIES];
 static idtr_t idtr; 
 
+
 static void PIC_remap(int offset1, int offset2);
 static void PIC_mask_all();
 void generic_handler(void* error);
-static void setupEntry(idt_entry_t *entry, void * handler);
+static void setupEntry(idt_entry_t *entry, void * handler, uint16_t type);
 
 int enable_interrupts() {
     // int gdb=1;
@@ -68,7 +69,7 @@ int enable_interrupts() {
 	PIC_mask_all();
 
 	for (i = 0; i<IDT_NUM_ENTRIES; i++) {
-		setupEntry(&idt[i], &isr0);
+		setupEntry(&idt[i], isr_table[i], IDT_INT_GATE);
 	}
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
@@ -115,14 +116,14 @@ static void PIC_mask_all() {
 	sets the offset of the entry to the address of the given
 	handler function
 */
-static void setupEntry(idt_entry_t *entry, void *handler) {
+static void setupEntry(idt_entry_t *entry, void *handler, uint16_t type) {
 	uint64_t handCast = (uint64_t)handler;
 	entry->tgtOffset0 = handCast & 0xFFFF;
 	entry->tgtOffset1 = (handCast >> 16) & 0xFFFF;
 	entry->tgtOffset2 = (handCast >> 32) & 0xFFFFFFFF;
 	entry->present = 1;
 	entry->tgtSelector = GDT_OFFSET;
-	entry->type = IDT_INT_GATE;
+	entry->type = type;
 }
 
 void generic_handler(void* error) {
