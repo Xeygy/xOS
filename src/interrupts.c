@@ -1,6 +1,8 @@
 #include "interrupts.h"
 #include "print.h"
 #include "asm.h"
+#include "ps2.h"
+
 extern void* isr_table[]; // from isr.asm
 
 /* 
@@ -14,6 +16,7 @@ extern void* isr_table[]; // from isr.asm
 #define PIC1_DATA	(PIC1+1)
 #define PIC2_COMMAND	PIC2
 #define PIC2_DATA	(PIC2+1) 
+#define PIC_EOI		0x20		/* End-of-interrupt command code */
 
 /* reinitialize the PIC controllers, giving them specified vector offsets
    rather than 8h and 70h, as configured by default */
@@ -53,16 +56,34 @@ typedef struct idt_entry_t {
 
 static idt_entry_t idt[IDT_NUM_ENTRIES];
 static idtr_t idtr; 
+static enabled, setup;
 
-
+static void PIC_sendEOI(uint8_t irq);
 static void PIC_remap(int offset1, int offset2);
 static void PIC_mask_all();
+static void firstTimeSetup();
 void generic_handler(void* val);
 static void setupEntry(idt_entry_t *entry, void * handler, uint16_t type);
 
 int enable_interrupts() {
     // int gdb=1;
-    // while(gdb);
+	// while(gdb);
+	if (!setup) 
+		firstTimeSetup();
+	sti();
+	enabled = 1;
+    return 0;
+}
+
+int disable_interrupts() {
+	cli();
+	enabled = 0;
+	return 0;
+}
+/* 
+	initializes the PIC and idt on startup
+*/
+static void firstTimeSetup() {
 	int i;
 	PIC_remap(0x20, 0x28);
 	PIC_mask_all();
@@ -74,9 +95,14 @@ int enable_interrupts() {
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
 	// load interrupts
 	lidt(&idtr);
-	
-	sti();
-    return 0;
+	setup = 1;
+}
+
+/*
+	returns 1 if interrupts are currently enabled,
+*/
+int interrupts_enabled() {
+	return enabled;
 }
  
 /*
@@ -107,7 +133,7 @@ static void PIC_remap(int offset1, int offset2) {
 }
 
 static void PIC_mask_all() {
-	outb(PIC1_DATA, 0xff);
+	outb(PIC1_DATA, 0xfd);
     outb(PIC2_DATA, 0xff);
 }
 
@@ -127,5 +153,31 @@ static void setupEntry(idt_entry_t *entry, void *handler, uint16_t type) {
 
 void generic_handler(void* val) {
 	uint64_t isr_num = (unsigned long) val;
-	printk("Interrupt #%lu\n", isr_num);
+	int gdb = 1;
+	char test;
+	printk("Interrupt 0x%lx\n", isr_num);
+	
+	if (isr_num >= 0x20 && isr_num <= 0x2f) {
+		// is a hardware interrupt
+		switch (isr_num) {
+			case 0x21:
+				while(gdb);
+				test = ps2_poll_read();
+				printk("%c\n", test);
+		}
+		PIC_sendEOI(isr_num - 0x20);
+	} else {
+		// is a software interrupt
+	}
+}
+
+/*
+	Tell PIC interrupt finished processing
+*/
+static void PIC_sendEOI(uint8_t irq)
+{
+	if(irq >= 8)
+		outb(PIC2_COMMAND,PIC_EOI);
+ 
+	outb(PIC1_COMMAND,PIC_EOI);
 }

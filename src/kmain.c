@@ -9,13 +9,13 @@
 int kmain() {
     // int gdb_loop = 1;
     //while(gdb_loop);
-    cli(); // disable interrupts
+    int i;
+    disable_interrupts();
     printk("%lu %lu %lu" , sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t));
+    init_ps2();
     enable_interrupts();
-    while (1) {
-        printk("%c", getchar());
-        asm volatile ("int $0x40");
-        asm volatile ("int $0x0f");
+    for (i = 0;; i = ++i%1000) {
+        printk("ticking%d...\n", i);
     }
     return 0;
 }

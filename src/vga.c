@@ -2,6 +2,7 @@
 #include "vga.h"
 #include "string.h"
 #include "asm.h"
+#include "interrupts.h"
 
 #define VGA_BASE 0xb8000
 #define FG(color) (color)
@@ -37,6 +38,12 @@ void VGA_clear(void)
     the existing last character with c. Supports \n and \r
 */
 void VGA_display_char(char c) {
+    int defer_enable = 0;
+	if (interrupts_enabled) {
+		defer_enable = 1;
+		disable_interrupts();
+	}
+
     if (c == '\n') {
         cursor = (LINE(cursor) + 1) * width;
         if (cursor >= width*height) {
@@ -52,6 +59,9 @@ void VGA_display_char(char c) {
             cursor++; 
     }
     set_cursor(cursor);
+
+    if (defer_enable)
+        enable_interrupts();
 }
 
 /*

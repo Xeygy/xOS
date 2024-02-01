@@ -29,8 +29,6 @@ typedef struct PS2_ccb {
 
 static int init_controller();
 static int init_keyb();
-static int init_ps2();
-static char ps2_poll_read();
 
 static int init_ctlr_success, ready_to_poll, capslock_on; 
 /* scan code set 2 */
@@ -55,22 +53,11 @@ static char scodes2_up[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '~', 0,
 /* 0 if scan code is depressed */
 static char scodes_down[sizeof(scodes2)];
 
-/* Polls the keyboard for the next character */
-int getchar() {
-    int error;
-    if ((error = init_ps2())) {
-        printk("Couldn't set up ps\\2 controller: %i", error);
-        return 0;
-    } else {
-        return ps2_poll_read();
-    }
-}
-
 /* 
     sets up ps2 controller and keyboard on port 1
     returns 0 on success, other on failure
 */
-static int init_ps2() {
+int init_ps2() {
     int error;
     if (ready_to_poll)
         return 0;
@@ -85,7 +72,7 @@ static int init_ps2() {
 }
 
 /* poll the ps2 device */
-static char ps2_poll_read()
+char ps2_poll_read()
 {
     uint8_t res;
     int error;
@@ -94,26 +81,24 @@ static char ps2_poll_read()
     if (!ready_to_poll && (error = init_ps2())) {
         printk("Couldn't set up ps\\2 controller: %i", error);
     }
-    while (output == 0) {
+    WAIT_FOR_OUTPUT;
+    res = inb(PS2_DATA);
+
+    if (res == 0xF0) {
+        // handle releases 
         WAIT_FOR_OUTPUT;
         res = inb(PS2_DATA);
-
-        if (res == 0xF0) {
-            // handle releases 
-            WAIT_FOR_OUTPUT;
-            res = inb(PS2_DATA);
-            if (res == CAPSLOCK) 
-                capslock_on = !capslock_on;
-            if (res < sizeof(scodes2))
-                scodes_down[res] = 0;
-        } else if (res < sizeof(scodes2) && 
-                    !scodes_down[res]) { // only print char if key has been released 
-            if (scodes_down[LSHIFT] || scodes_down[RSHIFT] || capslock_on) 
-                output = scodes2_up[res];
-            else
-                output = scodes2[res];
-            scodes_down[res] = 1;
-        }
+        if (res == CAPSLOCK) 
+            capslock_on = !capslock_on;
+        if (res < sizeof(scodes2))
+            scodes_down[res] = 0;
+    } else if (res < sizeof(scodes2) && 
+                !scodes_down[res]) { // only print char if key has been released 
+        if (scodes_down[LSHIFT] || scodes_down[RSHIFT] || capslock_on) 
+            output = scodes2_up[res];
+        else
+            output = scodes2[res];
+        scodes_down[res] = 1;
     }
     return output;
 }
@@ -124,6 +109,8 @@ static char ps2_poll_read()
 */
 static int init_keyb() {
     uint8_t test_res;
+    PS2_ccb ccb;
+
     if (!init_ctlr_success) 
         return 1;
     // enable device on port 1
@@ -161,6 +148,15 @@ static int init_keyb() {
     } else {
         printk("set scancode 2 success! got %hx\n", test_res);
     }  
+
+    // enable interrupts on device 1
+    outb(PS2_CMD, 0x20); 
+    test_res = inb(PS2_DATA);
+    memcpy(&ccb, &test_res, 1); // copy in byte to ccb
+    ccb.port1_irq = 1;
+    WAIT_FOR_EMPTY_IN;
+    outb(PS2_CMD, 0x60);
+    outb(PS2_DATA, *(uint8_t *) &ccb); // convert ccb to 1 byte
     return 0;
 }
 
@@ -194,7 +190,7 @@ static int init_controller() {
     // write to the ccb
     WAIT_FOR_EMPTY_IN;
     outb(PS2_CMD, 0x60);
-    outb(PS2_DATA, *(uint8_t *) &ccb); // onvert ccb to 1 byte
+    outb(PS2_DATA, *(uint8_t *) &ccb); // convert ccb to 1 byte
 
     // perform controller self test
     outb(PS2_CMD, 0xAA);
