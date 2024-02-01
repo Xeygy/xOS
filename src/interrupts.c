@@ -63,6 +63,7 @@ static void PIC_remap(int offset1, int offset2);
 static void PIC_mask_all();
 static void firstTimeSetup();
 void generic_handler(void* val);
+static void keyboard_handler();
 static void setupEntry(idt_entry_t *entry, void * handler, uint16_t type);
 
 int enable_interrupts() {
@@ -154,22 +155,30 @@ static void setupEntry(idt_entry_t *entry, void *handler, uint16_t type) {
 void generic_handler(void* val) {
 	uint64_t isr_num = (unsigned long) val;
 	int gdb = 1;
-	char kb_input;
-	printk("Interrupt 0x%lx\n", isr_num);
 	
 	if (isr_num >= 0x20 && isr_num <= 0x2f) {
 		// is a hardware interrupt
 		switch (isr_num) {
 			case 0x21:
-				//while(gdb);
-				kb_input = ps2_poll_read();
-				if (kb_input)
-					printk("%c\n", kb_input);
+				keyboard_handler();
+				break;
+			default:
+				printk("Interrupt 0x%lx not handled\n", isr_num);
 		}
 		PIC_sendEOI(isr_num - 0x20);
 	} else {
 		// is a software interrupt
 	}
+}
+
+/* 
+	handles interrupts from the keyboard device
+*/
+static void keyboard_handler() {
+	char kb_input;
+	kb_input = ps2_poll_read();
+	if (kb_input)
+		printk("%c", kb_input);
 }
 
 /*
