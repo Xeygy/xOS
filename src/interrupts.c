@@ -156,18 +156,19 @@ void generic_handler(void* val) {
 	uint64_t isr_num = (unsigned long) val;
 	int gdb = 1;
 	
+	switch (isr_num) {
+		case 0x21:
+			keyboard_handler();
+			break;
+		default:
+			printk("Interrupt 0x%lx not handled, stopping...\n", isr_num);
+			disable_interrupts();
+			asm volatile ("hlt");
+	}
+
 	if (isr_num >= 0x20 && isr_num <= 0x2f) {
-		// is a hardware interrupt
-		switch (isr_num) {
-			case 0x21:
-				keyboard_handler();
-				break;
-			default:
-				printk("Interrupt 0x%lx not handled\n", isr_num);
-		}
+		// is a hardware interrupt, notify PIC that it's handled
 		PIC_sendEOI(isr_num - 0x20);
-	} else {
-		// is a software interrupt
 	}
 }
 
