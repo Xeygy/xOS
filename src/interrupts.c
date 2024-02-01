@@ -34,7 +34,6 @@ extern void* isr_table[]; // from isr.asm
 #define IDT_INT_GATE 0xE /* runs with interrupts disabled */
 #define IDT_TRAP_GATE 0xF /* runs with interrupts enabled*/
 #define IDT_NUM_ENTRIES 256
-extern void* isr_stub_table[];
 
 
 // Interrupt Descriptor Table Entry
