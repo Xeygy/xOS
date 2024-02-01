@@ -46,7 +46,7 @@ gen_isr:
     pop rcx
     pop rax
     ;; move error code
-    add rsp, $8     
+    add rsp, 8     
     iretq\n\n'''
 )
 
@@ -54,7 +54,7 @@ gen_isr:
 for i in range(NUM_ISRs):
     f.write(f"isr{i}:\n")
     if i not in ISR_WITH_ERROR_CODE:
-        f.write(f"    sub rsp, $8\n")
-    f.write(f'''    mov rdi, ${i}
+        f.write(f"    sub rsp, 8\n")
+    f.write(f'''    mov rdi, {i}
     jmp gen_isr\n''')
 f.close()

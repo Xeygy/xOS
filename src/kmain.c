@@ -15,6 +15,7 @@ int kmain() {
     while (1) {
         printk("%c", getchar());
         asm volatile ("int $0x40");
+        asm volatile ("int $0x0f");
     }
     return 0;
 }

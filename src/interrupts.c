@@ -57,7 +57,7 @@ static idtr_t idtr;
 
 static void PIC_remap(int offset1, int offset2);
 static void PIC_mask_all();
-void generic_handler(void* error);
+void generic_handler(void* val);
 static void setupEntry(idt_entry_t *entry, void * handler, uint16_t type);
 
 int enable_interrupts() {
@@ -125,7 +125,7 @@ static void setupEntry(idt_entry_t *entry, void *handler, uint16_t type) {
 	entry->type = type;
 }
 
-void generic_handler(void* error) {
-	while (1) 
-		asm volatile ("cli; hlt");
+void generic_handler(void* val) {
+	uint64_t isr_num = (unsigned long) val;
+	printk("Interrupt #%lu\n", isr_num);
 }
