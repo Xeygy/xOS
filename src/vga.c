@@ -39,7 +39,7 @@ void VGA_clear(void)
 */
 void VGA_display_char(char c) {
     int defer_enable = 0;
-	if (interrupts_enabled) {
+	if (interrupts_enabled()) {
 		defer_enable = 1;
 		disable_interrupts();
 	}

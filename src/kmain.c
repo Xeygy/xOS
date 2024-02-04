@@ -14,7 +14,12 @@ int kmain() {
     printk("%lu %lu %lu" , sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t));
     init_ps2();
     enable_interrupts();
-    asm volatile("int $0x40");
+    // trigger page fault
+    //overflow();
     while(1);
     return 0;
+}
+
+int overflow() {
+    return overflow();
 }

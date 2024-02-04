@@ -40,6 +40,15 @@ static inline void lidt(idtr_t* idtr) {
 }
 
 /*
+    sets the task state segment 
+*/
+static inline void ltr(uint64_t offset) {
+    asm volatile ("ltr %0" 
+                :
+                : "m"(offset)); // TODO: Is this correct?
+}
+
+/*
     enables interrupts (set interrupt flag)
 */
 static inline void sti(void) {
