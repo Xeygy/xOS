@@ -5,8 +5,8 @@
 #include "string.h"
 
 extern void* isr_table[]; // from isr.asm
-extern void* gdt64_tss; // from boot.asm
-extern void* gdt64_tss_offset;  // from boot.asm
+extern uint64_t gdt64_tss[]; // from boot.asm
+extern uint64_t gdt64_tss_offset[];  // from boot.asm
 
 /* 
 * much of this code for interrupts 
@@ -102,7 +102,8 @@ typedef struct {
 static idt_entry_t idt[IDT_NUM_ENTRIES];
 static uint64_t ist1[2048/8]; // 2Mb
 static idtr_t idtr; 
-static enabled, setup;
+static tss_t tss;
+static int enabled, setup;
 
 static void PIC_sendEOI(uint8_t irq);
 static void PIC_remap(int offset1, int offset2);
@@ -110,8 +111,8 @@ static void PIC_mask_all();
 static void firstTimeSetup();
 void generic_handler(void* val);
 static void keyboard_handler();
-static void setupIdtEntry(idt_entry_t *entry, void * handler, uint16_t type);
-static void setupAndLoadTSS(tss_t *tss);
+static void setupIdtEntry(idt_entry_t *entry, void * handler, uint16_t type, uint8_t ist);
+static void setupAndLoadTSS();
 
 int enable_interrupts() {
     // int gdb=1;
@@ -133,16 +134,17 @@ int disable_interrupts() {
 */
 static void firstTimeSetup() {
 	int i;
-	tss_t tss;
-	void * tss_desc_t;
 	PIC_remap(0x20, 0x28);
 	PIC_mask_all();
 	// tss
-	setupAndLoadTSS(&tss);
+	setupAndLoadTSS();
 
 	// idt
 	for (i = 0; i<IDT_NUM_ENTRIES; i++) {
-		setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE);
+		if (i == ISR_DF || i == ISR_GP || i == ISR_PF) 
+			setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, 1);
+		else
+			setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, 0);
 	}
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
@@ -195,7 +197,7 @@ static void PIC_mask_all() {
 	sets the offset of the entry to the address of the given
 	handler function
 */
-static void setupIdtEntry(idt_entry_t *entry, void *handler, uint16_t type) {
+static void setupIdtEntry(idt_entry_t *entry, void *handler, uint16_t type, uint8_t ist) {
 	uint64_t handCast = (uint64_t)handler;
 	entry->tgtOffset0 = handCast & 0xFFFF;
 	entry->tgtOffset1 = (handCast >> 16) & 0xFFFF;
@@ -203,37 +205,37 @@ static void setupIdtEntry(idt_entry_t *entry, void *handler, uint16_t type) {
 	entry->present = 1;
 	entry->tgtSelector = GDT_OFFSET;
 	entry->type = type;
+	entry->ist = ist & 0b111;
 }
 
 /*
 	sets up the tss and calls ltr to load it
 */
-static void setupAndLoadTSS(tss_t *tss) {
+static void setupAndLoadTSS() {
 	tss_desc_t desc;
-	uint64_t castedTss = (uint64_t) tss;
+	uint64_t tssAddr = (uint64_t) &tss;
 
 	// tss table
-	tss->IST1 = (uint64_t) ist1;
-	
+	tss.IST1 = (uint64_t) ist1;
+
 	// tss descriptor
 	desc.limit1 = 0x68; // tss table size
-	desc.base0 = castedTss & 0xFFFF;
-	desc.base1 = (castedTss >> 16) & 0xFF;
-	desc.base2 = (castedTss >> 24) & 0xFF;
-	desc.base3 = (castedTss >> 32) & 0xFFFFFFFF;
-	desc.type = 1;
+	desc.base0 = tssAddr & 0xFFFF;
+	desc.base1 = (tssAddr >> 16) & 0xFF;
+	desc.base2 = (tssAddr >> 24) & 0xFF;
+	desc.base3 = (tssAddr >> 32) & 0xFFFFFFFF;
+	desc.type = 0b1001; // is type correct?
 	desc.dpl = 0;
 	desc.present = 1;
-	desc.g = 1;
+	desc.g = 1;  // is granularity correct?
 	// copy tss descriptor into gdt
-	memcpy(&gdt64_tss, &desc, sizeof(desc)); 
+	memcpy(gdt64_tss, &desc, sizeof(desc)); 
 	// load
-	ltr(&gdt64_tss_offset);
+	ltr(gdt64_tss_offset);
 }
 
 void generic_handler(void* val) {
 	uint64_t isr_num = (unsigned long) val;
-	int gdb = 1;
 	
 	switch (isr_num) {
 		case 0x21:

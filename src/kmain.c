@@ -8,14 +8,14 @@
 /* kernel main function */
 int kmain() {
     // int gdb_loop = 1;
-    //while(gdb_loop);
+    // while(gdb_loop);
     int i,j;
     disable_interrupts();
     printk("%lu %lu %lu" , sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t));
     init_ps2();
     enable_interrupts();
     // trigger page fault
-    //overflow();
+    overflow();
     while(1);
     return 0;
 }
