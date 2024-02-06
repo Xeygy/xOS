@@ -100,7 +100,7 @@ typedef struct {
 } __attribute__((packed)) tss_desc_t;
 
 static idt_entry_t idt[IDT_NUM_ENTRIES];
-static uint64_t ist1[2048/8]; // 2Mb
+static uint64_t ist1[2048/8]; // 2kb
 static idtr_t idtr; 
 static tss_t tss;
 static int enabled, setup;
@@ -224,10 +224,10 @@ static void setupAndLoadTSS() {
 	desc.base1 = (tssAddr >> 16) & 0xFF;
 	desc.base2 = (tssAddr >> 24) & 0xFF;
 	desc.base3 = (tssAddr >> 32) & 0xFFFFFFFF;
-	desc.type = 0b1001; // is type correct?
+	desc.type = 0b1001; 
 	desc.dpl = 0;
 	desc.present = 1;
-	desc.g = 1;  // is granularity correct?
+	desc.g = 1;  
 	// copy tss descriptor into gdt
 	memcpy(gdt64_tss, &desc, sizeof(desc)); 
 	// load
