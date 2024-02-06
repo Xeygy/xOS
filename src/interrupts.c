@@ -117,8 +117,6 @@ static void setupIdtEntry(idt_entry_t *entry, void * handler, uint16_t type, uin
 static void setupAndLoadTSS();
 
 int enable_interrupts() {
-    // int gdb=1;
-	// while(gdb);
 	if (!setup) 
 		firstTimeSetup();
 	sti();
@@ -131,6 +129,15 @@ int disable_interrupts() {
 	enabled = 0;
 	return 0;
 }
+
+/*
+	returns 1 if interrupts are currently enabled,
+	0 if not
+*/
+int interrupts_enabled() {
+	return enabled;
+}
+ 
 /* 
 	initializes the PIC and idt on startup
 */
@@ -162,13 +169,6 @@ static void firstTimeSetup() {
 	setup = 1;
 }
 
-/*
-	returns 1 if interrupts are currently enabled,
-*/
-int interrupts_enabled() {
-	return enabled;
-}
- 
 /*
 arguments:
 	offset1 - vector offset for master PIC

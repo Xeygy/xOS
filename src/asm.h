@@ -49,6 +49,11 @@ static inline void ltr(void *offset) {
 }
 
 /*
+    DO NOT USE FOR GENERAL INTERRUPT ENABLE 
+    use the wrapper enable_interrupts() in
+    interrupts.h, so we can track if interrupts
+    are enabled in software.
+
     enables interrupts (set interrupt flag)
 */
 static inline void sti(void) {
@@ -56,6 +61,11 @@ static inline void sti(void) {
 }
 
 /*
+    DO NOT USE FOR GENERAL INTERRUPT DISABLE 
+    use the wrapper disable_interrupts() in
+    interrupts.h, so we can track if interrupts
+    are enabled in software.
+
     disables interrupts (clear interrupt flag)
 */
 static inline void cli(void) {
