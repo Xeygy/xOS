@@ -100,7 +100,9 @@ typedef struct {
 } __attribute__((packed)) tss_desc_t;
 
 static idt_entry_t idt[IDT_NUM_ENTRIES];
-static uint64_t ist1[2048/8]; // 2kb
+static uint64_t ist1[2048/8]; // 2kb 
+static uint64_t ist2[2048/8]; // 2kb
+static uint64_t ist3[2048/8]; // 2kb
 static idtr_t idtr; 
 static tss_t tss;
 static int enabled, setup;
@@ -133,7 +135,7 @@ int disable_interrupts() {
 	initializes the PIC and idt on startup
 */
 static void firstTimeSetup() {
-	int i;
+	int i, ist_idx;
 	PIC_remap(0x20, 0x28);
 	PIC_mask_all();
 	// tss
@@ -141,10 +143,16 @@ static void firstTimeSetup() {
 
 	// idt
 	for (i = 0; i<IDT_NUM_ENTRIES; i++) {
-		if (i == ISR_DF || i == ISR_GP || i == ISR_PF) 
-			setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, 1);
-		else
-			setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, 0);
+		if (i == ISR_DF) {
+			ist_idx = 1;
+		} else if (i == ISR_GP) {
+			ist_idx = 2;
+		} else if (i == ISR_PF) {
+			ist_idx = 3;
+		} else {
+			ist_idx = 0;
+		}
+		setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, ist_idx);
 	}
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
@@ -217,6 +225,8 @@ static void setupAndLoadTSS() {
 
 	// tss table
 	tss.IST1 = (uint64_t) ist1;
+	tss.IST2 = (uint64_t) ist2;
+	tss.IST3 = (uint64_t) ist3;
 
 	// tss descriptor
 	desc.limit1 = 0x68; // tss table size
