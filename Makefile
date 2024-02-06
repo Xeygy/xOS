@@ -23,6 +23,10 @@ clean:
 	@rm -r build
 
 run: $(img)
+	@qemu-system-x86_64 -no-reboot -s -drive format=raw,file=$(img) -serial stdio 
+
+# display interrupts, stop on crash
+run_int_stop: $(img)
 	@qemu-system-x86_64 -d int,cpu_reset -no-reboot -s -drive format=raw,file=$(img) -serial stdio 
 
 # needs another terminal window running `make run`
@@ -72,9 +76,8 @@ $(iso): $(kernel) $(grub_cfg)
 $(kernel): $(assembly_object_files) $(linker_script) $(c_obj_files)
 	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(c_obj_files)
 
-# TODO: readd -Werror after divide by 0 testing
 build/arch/$(arch)/%.o: src/%.c 
-	x86_64-elf-gcc $< -c -g -MMD -Wall -o $@ -ffreestanding
+	@x86_64-elf-gcc $< -c -g -MMD -Wall -Werror -o $@ -ffreestanding
 
 # compile assembly files
 build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm
