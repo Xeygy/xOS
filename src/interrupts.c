@@ -258,7 +258,7 @@ void generic_handler(void* val) {
 */
 static void keyboard_handler() {
 	char kb_input;
-	kb_input = ps2_poll_read();
+	kb_input = ps2_read();
 	if (kb_input)
 		printk("%c", kb_input);
 }

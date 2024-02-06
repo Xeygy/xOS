@@ -73,11 +73,11 @@ int init_ps2() {
 }
 
 /* 
-poll the ps2 device, assumes there exists data in the data port 
+read from the ps2 device, assumes there exists data in the data port 
 (i.e. interrupt driven) 
 returns 0 if not a printable char.
 */
-char ps2_poll_read()
+char ps2_read()
 {
     uint8_t res;
     int error;
@@ -88,7 +88,7 @@ char ps2_poll_read()
         return 0;
     }
     if (!(inb(PS2_STATUS) & PS2_STATUS_OUTPUT)) {
-        printk("called poll but nothing in ps\\2 data");
+        printk("called read but nothing in ps\\2 data");
         return 0;
     }
 
