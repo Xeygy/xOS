@@ -3,6 +3,7 @@
 #include "asm.h"
 #include "ps2.h"
 #include "string.h"
+#include "serial.h"
 
 extern void* isr_table[]; // from isr.asm
 extern uint64_t gdt64_tss[]; // from boot.asm
@@ -45,6 +46,10 @@ extern uint64_t gdt64_tss_offset[];  // from boot.asm
 #define ISR_DF 8  /* Double Fault */
 #define ISR_GP 13 /* General Protection  */
 #define ISR_PF 14 /* Page Fault */
+
+#define IRQ_TIMER 0x20
+#define IRQ_KEYBOARD 0x21
+#define IRQ_SERIAL_1 0x24
 
 // Interrupt Descriptor Table Entry
 typedef struct idt_entry_t {
@@ -109,7 +114,7 @@ static int enabled, setup;
 
 static void PIC_sendEOI(uint8_t irq);
 static void PIC_remap(int offset1, int offset2);
-static void PIC_mask_all();
+static void set_PIC_mask();
 static void firstTimeSetup();
 void generic_handler(void* val);
 static void keyboard_handler();
@@ -144,7 +149,7 @@ int interrupts_enabled() {
 static void firstTimeSetup() {
 	int i, ist_idx;
 	PIC_remap(0x20, 0x28);
-	PIC_mask_all();
+	set_PIC_mask();
 	// tss
 	setupAndLoadTSS();
 
@@ -196,9 +201,11 @@ static void PIC_remap(int offset1, int offset2) {
 	outb(PIC2_DATA, a2);
 }
 
-static void PIC_mask_all() {
-	outb(PIC1_DATA, 0xfd);
-    outb(PIC2_DATA, 0xff);
+static void set_PIC_mask() {
+	uint16_t pic1_mask = 0xff - 0b10010; // unmask serial 1, keyb
+	uint16_t pic2_mask = 0xff;
+	outb(PIC1_DATA, pic1_mask);
+    outb(PIC2_DATA, pic2_mask);
 }
 
 /*
@@ -248,8 +255,11 @@ void generic_handler(void* val) {
 	uint64_t isr_num = (unsigned long) val;
 	
 	switch (isr_num) {
-		case 0x21:
+		case IRQ_KEYBOARD:
 			keyboard_handler();
+			break;
+		case IRQ_SERIAL_1:
+			SER_ISR();
 			break;
 		default:
 			printk("Interrupt 0x%lx not handled, stopping...\n", isr_num);

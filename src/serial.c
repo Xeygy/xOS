@@ -4,6 +4,11 @@
 
 #define PORT 0x3f8          // Assumed COM1 Port, from https://wiki.osdev.org/Serial_ports#Port_Addresses
 #define BUFF_SIZE 256
+#define IIR_TX_EMPTY 0b001
+#define IIR_LINE 0b011
+#define IIR_RECIEVED_DATA 0b010
+#define IIR_CHAR_TO 0b110
+#define IIR_MSR 0b000
 
 typedef struct State {
     char buff[BUFF_SIZE];
@@ -12,15 +17,21 @@ typedef struct State {
 
 static int SER_init(); 
 static int is_transmit_empty();
+static int IIR_reason();
 static int add_to_state(char c);
-static void hw_write();
+static int hw_write();
 
 static int initialized, busy;
 static State state;
 
 int SER_write(const char *buff, int len) {
     int offset = 0;
-    if (!initialized && SER_init()) {
+    int reenable_int = 0;
+    if (interrupts_enabled()) {
+        disable_interrupts();
+        reenable_int = 1;
+    }
+    if (SER_init()) {
         printk("failed to initialize serial");
         return 1;
     }
@@ -28,20 +39,40 @@ int SER_write(const char *buff, int len) {
         *(buff + offset) != '\0' && 
         !add_to_state(*(buff + offset++)));
     hw_write();
+    if (reenable_int) {
+        enable_interrupts();
+    }
     return 0;
 }
 
 void SER_ISR() {
-    // TX interrupt
-    hw_write();
+    int reason;
+    reason = IIR_reason();
+    if (reason == IIR_LINE) {
+        // read LSR to clear, don't do anything
+        is_transmit_empty();
+    } else if (reason == IIR_TX_EMPTY) {
+        hw_write();
+    } else if (reason == IIR_RECIEVED_DATA || reason== IIR_CHAR_TO) {
+        printk("iir got %d\n", reason);
+        inb(PORT); // read RBR to clear
+    } else if (reason == IIR_MSR) {
+        printk("iir got %d\n", reason);
+        inb(PORT + 6); // read MSR to clear
+    } else {
+        printk("unsupported serial interrupt %d\n", reason);
+    }
 }
 
 /* 
 Initializes serial output 
 from https://wiki.osdev.org/Serial_ports
 https://www.lammertbies.nl/comm/info/serial-uart
+returns 0 on success, sets initialized to true.
 */
 static int SER_init() {
+    if (initialized)
+        return 0;
     // software init
     state.consumer = &state.buff[0];
     state.producer = &state.buff[0];
@@ -56,20 +87,31 @@ static int SER_init() {
     outb(PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
     outb(PORT + 4, 0x1E);    // Set in loopback mode, test the serial chip
     outb(PORT + 0, 0xAE);    // Test serial chip (send byte 0xAE and check if serial returns same byte)
-    
-   // Check if serial is faulty (i.e: not same byte as sent)
+
+    // Check if serial is faulty (i.e: not same byte as sent)
     if(inb(PORT + 0) != 0xAE) {
         return 1;
     }
- 
-   // If serial is not faulty set it in normal operation mode
-   // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
-   outb(PORT + 4, 0x0F);
-   return 0;
+
+    // If serial is not faulty set it in normal operation mode
+    // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
+    outb(PORT + 4, 0x0F);
+
+    // enable interrupts 
+    outb(PORT + 1, 0b110);
+
+    initialized = 1;
+    return 0;
 }
 
+// check if tx is ready to recieve
 static int is_transmit_empty() {
     return inb(PORT + 5) & 0x20;
+}
+
+// returns bits 1-3 of the IIR Register
+static int IIR_reason() {
+    return (inb(PORT + 2) & 0b1110) >> 1;
 }
 
 /* 
@@ -79,7 +121,7 @@ returns 0 on success, 1 on error
 static int add_to_state(char c) {
     // if producer is right behind consumer, it is full
     if (state.producer == state.consumer - 1 ||
-        state.consumer == &state.buff[0] && state.producer == &state.buff[BUFF_SIZE])
+        (state.consumer == &state.buff[0] && state.producer == &state.buff[BUFF_SIZE]))
         return 1;
     *state.producer = c;
     state.producer++;
@@ -92,9 +134,9 @@ static int add_to_state(char c) {
 consumer, sends things in state.buff to serial tx
 returns 0 on sucessful handle, error otherwise
 */
-static void hw_write() {
-    if (!initialized) {
-        printk("called hw_write before init");
+static int hw_write() {
+    if (SER_init()) {
+        printk("failed to initialize serial in hw_write\n");
         return 1;
     }
     if (busy) {

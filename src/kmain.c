@@ -13,7 +13,7 @@ int kmain() {
     disable_interrupts();
     init_ps2();
     enable_interrupts();
-    SER_write(0, 2);
+    SER_write("Hello World!", 13);
     while(1);
     return 0;
 }
