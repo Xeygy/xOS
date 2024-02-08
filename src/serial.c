@@ -1,21 +1,39 @@
 #include "asm.h"
 #include "print.h"
+#include "interrupts.h"
+
 #define PORT 0x3f8          // Assumed COM1 Port, from https://wiki.osdev.org/Serial_ports#Port_Addresses
- 
-int SER_write(const char *buff, int len);
+#define BUFF_SIZE 256
+
+typedef struct State {
+    char buff[BUFF_SIZE];
+    char *consumer, *producer;
+} State;
+
 static int SER_init(); 
 static int is_transmit_empty();
-static void write_serial(char a);
+static int add_to_state(char c);
+static void hw_write();
 
-static int initialized;
+static int initialized, busy;
+static State state;
 
 int SER_write(const char *buff, int len) {
+    int offset = 0;
     if (!initialized && SER_init()) {
         printk("failed to initialize serial");
         return 1;
     }
-    write_serial('a');
+    while (offset < len &&
+        *(buff + offset) != '\0' && 
+        !add_to_state(*(buff + offset++)));
+    hw_write();
     return 0;
+}
+
+void SER_ISR() {
+    // TX interrupt
+    hw_write();
 }
 
 /* 
@@ -24,6 +42,11 @@ from https://wiki.osdev.org/Serial_ports
 https://www.lammertbies.nl/comm/info/serial-uart
 */
 static int SER_init() {
+    // software init
+    state.consumer = &state.buff[0];
+    state.producer = &state.buff[0];
+
+    // hardware init
     outb(PORT + 1, 0x00);    // Disable all interrupts
     outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
     outb(PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
@@ -48,9 +71,44 @@ static int SER_init() {
 static int is_transmit_empty() {
     return inb(PORT + 5) & 0x20;
 }
- 
-static void write_serial(char a) {
-    // temp poll
-    while (is_transmit_empty() == 0);
-    outb(PORT,a);
+
+/* 
+producer 
+returns 0 on success, 1 on error 
+*/
+static int add_to_state(char c) {
+    // if producer is right behind consumer, it is full
+    if (state.producer == state.consumer - 1 ||
+        state.consumer == &state.buff[0] && state.producer == &state.buff[BUFF_SIZE])
+        return 1;
+    *state.producer = c;
+    state.producer++;
+    if (state.producer >= &state.buff[BUFF_SIZE])
+        state.producer = &state.buff[0];
+    return 0;
+}
+
+/* 
+consumer, sends things in state.buff to serial tx
+returns 0 on sucessful handle, error otherwise
+*/
+static void hw_write() {
+    if (!initialized) {
+        printk("called hw_write before init");
+        return 1;
+    }
+    if (busy) {
+        while (is_transmit_empty() == 0);
+        busy = 0;
+    }
+    // nothing to consume
+    if (state.consumer == state.producer)
+        return 0;
+    // write out
+    outb(PORT, *state.consumer);
+    state.consumer++;
+    if (state.consumer >= &state.buff[BUFF_SIZE])
+        state.consumer = &state.buff[0];
+    busy = 1;
+    return 0;
 }

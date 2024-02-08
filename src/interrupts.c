@@ -237,7 +237,7 @@ static void setupAndLoadTSS() {
 	desc.type = 0b1001; 
 	desc.dpl = 0;
 	desc.present = 1;
-	desc.g = 1;  
+	desc.g = 1;  // maybe change to 0
 	// copy tss descriptor into gdt
 	memcpy(gdt64_tss, &desc, sizeof(desc)); 
 	// load
