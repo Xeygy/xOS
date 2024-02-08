@@ -1,5 +1,6 @@
 #include "print.h"
 #include "vga.h"
+#include "serial.h"
 #include <stdarg.h>
 
 #define MAXBUF (sizeof(long long int) * 8) // long enough even for binary
@@ -7,7 +8,7 @@ static char digits[] = "0123456789abcdef";
 
 void print_ullong(unsigned long long int i, int base);
 void print_llong(long long int i, int base);
-
+static void VGA_and_SER_display_char(char c);
 /*
     printf but for the kernel. supports
         %% - a percent sign
@@ -31,7 +32,7 @@ int printk(const char *fmt, ...) {
     while (fmt[i] != '\0') {
         is_h = 0, is_l = 0, is_q = 0;
         if (fmt[i] != '%') {
-            VGA_display_char(fmt[i]);
+            VGA_and_SER_display_char(fmt[i]);
             i++;
             continue;
         }
@@ -52,7 +53,7 @@ int printk(const char *fmt, ...) {
         }
         switch (fmt[i]) {
             case '%':
-                VGA_display_char('%');
+                VGA_and_SER_display_char('%');
                 break;
 
             case 'd':
@@ -91,7 +92,7 @@ int printk(const char *fmt, ...) {
                 break;
 
             case 'c':
-                VGA_display_char(va_arg(args, int));
+                VGA_and_SER_display_char(va_arg(args, int));
                 break;
 
             case 's':
@@ -99,14 +100,14 @@ int printk(const char *fmt, ...) {
                 break;
 
             case '\0':
-                VGA_display_char('%');
+                VGA_and_SER_display_char('%');
                 i--;
                 break;
 
             default:
                 // just print the %specifier if it isn't valid.
-                VGA_display_char('%');
-                VGA_display_char(fmt[i]);
+                VGA_and_SER_display_char('%');
+                VGA_and_SER_display_char(fmt[i]);
             }
         i++;
     }
@@ -118,7 +119,7 @@ void print_llong(long long int i, int base) {
     unsigned long long u;
     if (i < 0) {
         u = -i;
-        VGA_display_char('-');
+        VGA_and_SER_display_char('-');
     } else 
         u = i;
     print_ullong(u, base);
@@ -129,7 +130,7 @@ void print_ullong(unsigned long long int i, int base) {
     char buf[MAXBUF];
     int idx = 0, temp;
     if (i == 0) {
-        VGA_display_char('0');
+        VGA_and_SER_display_char('0');
         return;
     }
     // convert ints to chars and put onto stack
@@ -142,7 +143,16 @@ void print_ullong(unsigned long long int i, int base) {
     idx--; // revert the last ++
     // pop chars off the stack and display
     while (idx >= 0) {
-        VGA_display_char(buf[idx]);
+        VGA_and_SER_display_char(buf[idx]);
         idx--;
     }
+}
+
+/* 
+function that writes given char both to serial out
+and vga
+*/
+static void VGA_and_SER_display_char(char c) {
+    VGA_display_char(c);
+    SER_write(&c, 1);
 }

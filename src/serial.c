@@ -3,7 +3,7 @@
 #include "interrupts.h"
 
 #define PORT 0x3f8          // Assumed COM1 Port, from https://wiki.osdev.org/Serial_ports#Port_Addresses
-#define BUFF_SIZE 256
+#define BUFF_SIZE 256   // note this means SER_write cannot be called w/a string of len > 256
 #define IIR_TX_EMPTY 0b001
 #define IIR_LINE 0b011
 #define IIR_RECIEVED_DATA 0b010
