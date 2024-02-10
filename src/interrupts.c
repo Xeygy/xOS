@@ -46,6 +46,7 @@ extern uint64_t gdt64_tss_offset[];  // from boot.asm
 #define ISR_DF 8  /* Double Fault */
 #define ISR_GP 13 /* General Protection  */
 #define ISR_PF 14 /* Page Fault */
+#define STACK_SIZE 2048/8 /* 2kb, stack size of the tss ist stacks */
 
 #define IRQ_TIMER 0x20
 #define IRQ_KEYBOARD 0x21
@@ -105,9 +106,9 @@ typedef struct {
 } __attribute__((packed)) tss_desc_t;
 
 static idt_entry_t idt[IDT_NUM_ENTRIES];
-static uint64_t ist1[2048/8]; // 2kb 
-static uint64_t ist2[2048/8]; // 2kb
-static uint64_t ist3[2048/8]; // 2kb
+static uint64_t ist1[STACK_SIZE]; // 2kb 
+static uint64_t ist2[STACK_SIZE]; // 2kb
+static uint64_t ist3[STACK_SIZE]; // 2kb
 static idtr_t idtr; 
 static tss_t tss;
 static int enabled, setup;
@@ -230,11 +231,10 @@ static void setupAndLoadTSS() {
 	tss_desc_t desc;
 	uint64_t tssAddr = (uint64_t) &tss;
 
-	// tss table
-	tss.IST1 = (uint64_t) ist1;
-	tss.IST2 = (uint64_t) ist2;
-	tss.IST3 = (uint64_t) ist3;
-
+	// tss table (start from the other end of the arr)
+	tss.IST1 = (uint64_t) ist1 + STACK_SIZE - 1;
+	tss.IST2 = (uint64_t) ist2 + STACK_SIZE - 1;
+	tss.IST3 = (uint64_t) ist3 + STACK_SIZE - 1;
 	// tss descriptor
 	desc.limit1 = 0x68; // tss table size
 	desc.base0 = tssAddr & 0xFFFF;
