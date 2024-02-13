@@ -8,7 +8,9 @@ section .text
 bits 32
 start:
     ; set stack pointer
-     mov esp, stack_top
+    mov esp, stack_top
+    ; pass %ebx to kmain
+    mov edi, ebx
     ; check if we can enter long mode
     call check_multiboot
     call check_cpuid
