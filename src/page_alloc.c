@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "print.h"
 
-#define ALIGN_8_BYTE(val) ((val/8) + 1) * 8
+#define ALIGN_8_BYTE(val) ((val + 7) / 8 ) * 8 
 
 // https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Boot-information-format
 typedef enum {
@@ -34,6 +34,26 @@ typedef struct mmap_entry {
     uint32_t reserved:20;
 } __attribute__((packed)) mmap_entry;
 
+typedef struct elf_syms_hdr {
+    uint32_t tagType;
+	uint32_t totalSizeBytes;
+    uint32_t numEntries;
+	uint32_t entryByteSize;
+    uint32_t strTblIdx;
+} __attribute__((packed)) elf_syms_hdr;
+
+typedef struct elf_syms_entry {
+    uint32_t nameIdx;  // index into the string table
+	uint32_t sectionType;
+    uint64_t flags;
+    uint64_t memAddr;
+    uint64_t offsetOnDisk;
+    uint64_t segmentByteSize;
+    uint32_t tableIdxLink;
+    uint32_t extra;
+    uint64_t addrAlignement;
+    uint64_t IFFsize;
+} __attribute__((packed)) elf_syms_entry;
 
 static void read_MMAP(void* mmap_tag);
 static void read_ELF_syms(void* syms_tag);
@@ -49,6 +69,7 @@ void MMU_init(void *mb2_head) {
     }
     while (curr_ptr < mb2_head + header->totalSizeBytes) {
         curr_tag_hdr = curr_ptr;
+        printk("tag type: %u, size: %u\n", curr_tag_hdr->tagType, curr_tag_hdr->totalSizeBytes);
         switch (curr_tag_hdr->tagType)
         {
         case TYPE_MMAP:
@@ -56,7 +77,11 @@ void MMU_init(void *mb2_head) {
             break;
 
         case TYPE_ELF_SYMS:
-            read_ELF_SYMS(curr_ptr);
+            read_ELF_syms(curr_ptr);
+            break;
+
+        case TYPE_BOOTLDR_NAME:
+            printk("Name: %s\n", (char *) (curr_ptr + 8));
             break;
 
         case TYPE_END_TAG_LIST:
@@ -72,7 +97,13 @@ void MMU_init(void *mb2_head) {
 }
 
 static void read_ELF_syms(void* syms_tag) {
-
+    elf_syms_hdr* header = syms_tag;
+    elf_syms_entry* curr_entry = syms_tag + sizeof(elf_syms_hdr);
+    printk("    strings %x, size %u\n", header->strTblIdx, header->entryByteSize);
+    while ((void *) curr_entry < syms_tag + header->totalSizeBytes) {
+        printk("    start %lu, size %lu, nameIdx: %u\n", curr_entry->memAddr, curr_entry->segmentByteSize, curr_entry->nameIdx);
+        curr_entry = (void *) curr_entry + header->entryByteSize;
+    }
 }
 
 static void read_MMAP(void* mmap_tag) {
@@ -81,10 +112,11 @@ static void read_MMAP(void* mmap_tag) {
     mmap_entry* curr_entry = mmap_tag + 16; 
     while ((void*) curr_entry < mmap_tag + header->totalSizeBytes)
     {
-        if (curr_entry->type == 1) { // we can use this memory
+        if (curr_entry->type == 1)  // we can use this memory
             printk("*");
-        }
-        printk("    start %lu, len %lu, ty %u\n", curr_entry->start_addr, curr_entry->byte_len, curr_entry->type);
+        else 
+            printk(" ");
+        printk("   start %lu, len %lu, ty %u\n", curr_entry->start_addr, curr_entry->byte_len, curr_entry->type);
         curr_entry = (void *) curr_entry + size_of_mmap_entry;
     }
 }

@@ -9,6 +9,8 @@ static char digits[] = "0123456789abcdef";
 void print_ullong(unsigned long long int i, int base);
 void print_llong(long long int i, int base);
 static void VGA_and_SER_display_char(char c);
+static void VGA_and_SER_display_string(char* str);
+
 /*
     printf but for the kernel. supports
         %% - a percent sign
@@ -79,7 +81,7 @@ int printk(const char *fmt, ...) {
                 break;
 
             case 'p':
-                VGA_display_str("0x");
+                VGA_and_SER_display_string("0x");
             case 'x':
                 if (is_h)
                     print_ullong(va_arg(args, unsigned int), 16);
@@ -96,7 +98,7 @@ int printk(const char *fmt, ...) {
                 break;
 
             case 's':
-                VGA_display_str(va_arg(args, char *));
+                VGA_and_SER_display_string(va_arg(args, char *));
                 break;
 
             case '\0':
@@ -155,4 +157,15 @@ and vga
 static void VGA_and_SER_display_char(char c) {
     VGA_display_char(c);
     SER_write(&c, 1);
+}
+
+/*
+    Displays chars starting at p until it reaches a null char.
+*/
+static void VGA_and_SER_display_string(char* str) {
+    char curr = *str;
+    while (curr != '\0') {
+        VGA_and_SER_display_char(curr);
+        curr = *(++str);
+    }
 }
