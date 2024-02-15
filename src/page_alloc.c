@@ -56,29 +56,85 @@ typedef struct elf_syms_entry {
     uint64_t IFFsize;
 } __attribute__((packed)) elf_syms_entry;
 
+/* page frame, the first sizeof bits are holding 
+the pointer to the next page frame */
+typedef struct pf_hdr {
+    uint64_t next;
+} __attribute__((packed)) pf_hdr;
+
 typedef struct mem_chunk {
     uint64_t addr;
     uint64_t byteSize;
 } __attribute__((packed)) mem_chunk;
 
 static mem_chunk mem_tbl[16]; // table of available mem
+static uint64_t pf_total_ct;
 static int mem_tbl_next_idx; // pointer to next free spot in mem_tbl
 
-static void fill_mem_tbl(void* mmap_tag);
-static void reserve_mem_tbl(void* syms_tag);
-static void remove_mem_tbl(uint64_t start, uint64_t end);
+static uint64_t next_consecutive_pf_idx; // alloc
+static pf_hdr *free_frames;
 
-// initialize our table of available memory into mem_tbl
-void MMU_init(void *mb2_head) {
+static void fill_mem_tbl(void* mmap_tag);
+static void reserve_elf_syms(void* syms_tag);
+static void reserve_mem_tbl(uint64_t start, uint64_t end);
+
+/* return a pointer to a page frame, returns 0 on error */
+void * MMU_pf_alloc() {
+    uint64_t offset = next_consecutive_pf_idx * PF_SIZE_BYTES;
+    pf_hdr *ret;
+    int i;
+    if (pf_total_ct > next_consecutive_pf_idx) {
+        // we can just alloc the next consecutive spot in memory
+        for (i = 0; i < mem_tbl_next_idx; i++) {
+            if (mem_tbl[i].byteSize > offset) {
+                // this is the right section
+                next_consecutive_pf_idx++;
+                return (void *) mem_tbl[i].addr + offset;
+            }
+            offset -= mem_tbl[i].byteSize;
+        }
+        printk("ERROR: pf_alloc shouldn't get here, pf_total_ct may be inaccurate");
+        return 0;
+    } else {
+        // start using the free frames list
+        if (free_frames == 0) {
+            printk("pf_alloc ran out of memory");
+            asm volatile ("hlt");
+            return 0;
+        }
+        ret = free_frames;
+        free_frames = (void *) free_frames->next;
+        return ret;
+    }
+}
+
+void MMU_pf_free(void *pf) {
+    pf_hdr *pf_start, *tmp;
+
+    // get the start of the PF_SIZE_BYTES block
+    pf_start = pf - (uint64_t) pf % PF_SIZE_BYTES;
+
+    // send pf_start to the start of the free_frames list
+    tmp = free_frames;
+    free_frames = pf_start;
+    pf_start->next = (uint64_t) tmp; 
+}
+
+
+/* 
+initialize our table of available memory into mem_tbl
+returns 0 on success, error code on fail
+*/
+int MMU_init(void *mb2_head) {
     mb2_info_hdr* header = mb2_head;
     mb2_tag_hdr* curr_tag_hdr;
-    int end_mb2;
+    int end_mb2, i;
     void *elf_syms, *mmap;
     void* curr_ptr = mb2_head + sizeof(*header);
 
     if (header->reservedMBZ != 0) {
         printk("mb2 header @ %p, had nonzero value 0x%x in zeros\n", mb2_head, header->reservedMBZ);
-        return;
+        return 1;
     }
     while (!end_mb2 && curr_ptr < mb2_head + header->totalSizeBytes) {
         curr_tag_hdr = curr_ptr;
@@ -107,7 +163,28 @@ void MMU_init(void *mb2_head) {
     // get all available memory from mmap into mem_tbl
     fill_mem_tbl(mmap);
     // remove any memory that the kernel is using
-    reserve_mem_tbl(elf_syms);
+    reserve_elf_syms(elf_syms);
+    // remove first page frame bytes
+    reserve_mem_tbl(0, PF_SIZE_BYTES);
+
+
+    for (i = 0; i < mem_tbl_next_idx; i++) {
+        // store total page frame count in pf_total_ct
+        pf_total_ct += mem_tbl[i].byteSize / PF_SIZE_BYTES;
+
+        // make sure chunks are pf_size_bytes aligned
+        if (mem_tbl[i].byteSize & (PF_SIZE_BYTES - 1)) {
+            // round down
+            mem_tbl[i].byteSize = (mem_tbl[i].byteSize / PF_SIZE_BYTES) * PF_SIZE_BYTES;
+        }
+        if (mem_tbl[i].addr & (PF_SIZE_BYTES - 1)) {
+            // round up
+            mem_tbl[i].addr = ((mem_tbl[i].addr + PF_SIZE_BYTES - 1) / PF_SIZE_BYTES ) * PF_SIZE_BYTES;
+        }
+
+    }
+    printk("total pf %lu \n", pf_total_ct);
+    return 0;
 }
 
 // fill mem table with mem chunks of type 1 from mmap
@@ -118,7 +195,7 @@ static void fill_mem_tbl(void* mmap_tag) {
 
     while ((void*) curr_entry < mmap_tag + header->totalSizeBytes) {
         if (curr_entry->type == 1) {
-            printk("avail start %lu, end %lu\n", curr_entry->start_addr, curr_entry->start_addr + curr_entry->byte_len);
+            printk("avail start %lx, end %lx\n", curr_entry->start_addr, curr_entry->start_addr + curr_entry->byte_len);
             mem_tbl[mem_tbl_next_idx].addr = curr_entry->start_addr;
             mem_tbl[mem_tbl_next_idx].byteSize = curr_entry->byte_len;
             mem_tbl_next_idx++;
@@ -128,7 +205,7 @@ static void fill_mem_tbl(void* mmap_tag) {
 }
 
 // carve out any mem spots being used in elf symbols from mem table
-static void reserve_mem_tbl(void* syms_tag) {
+static void reserve_elf_syms(void* syms_tag) {
     elf_syms_hdr* header = syms_tag;
     elf_syms_entry* curr_entry = syms_tag + sizeof(elf_syms_hdr);
     uint64_t curr_chunk_start = 0, curr_chunk_end = 0;
@@ -136,19 +213,19 @@ static void reserve_mem_tbl(void* syms_tag) {
     while ((void *) curr_entry < syms_tag + header->totalSizeBytes) {
         // relies on sequential chunk order
         if (curr_entry->memAddr > curr_chunk_end + PF_SIZE_BYTES) { // we will just connect chunks less than a page frame apart
-            printk("mem start %lu, end %lu\n", curr_chunk_start, curr_chunk_end);
-            remove_mem_tbl(curr_chunk_start, curr_chunk_end);
+            printk("mem start %lx, end %lx\n", curr_chunk_start, curr_chunk_end);
+            reserve_mem_tbl(curr_chunk_start, curr_chunk_end);
             curr_chunk_start = curr_entry->memAddr;
         } 
         curr_chunk_end = curr_entry->memAddr + curr_entry->segmentByteSize;
         curr_entry = (void *) curr_entry + header->entryByteSize;
     }
-    printk("last mem start %lu, end %lu\n", curr_chunk_start, curr_chunk_end);
-    remove_mem_tbl(curr_chunk_start, curr_chunk_end);
+    printk("last mem start %lx, end %lx\n", curr_chunk_start, curr_chunk_end);
+    reserve_mem_tbl(curr_chunk_start, curr_chunk_end);
 }
 
 // truncates memory in mem table based on [start, end)
-static void remove_mem_tbl(uint64_t start, uint64_t end) {
+static void reserve_mem_tbl(uint64_t start, uint64_t end) {
     int i, j;
     mem_chunk* curr;
 
@@ -183,9 +260,3 @@ static void remove_mem_tbl(uint64_t start, uint64_t end) {
         }
     }
 }
-
-void * MMU_pf_alloc() {
-    return 0;
-}
-
-
