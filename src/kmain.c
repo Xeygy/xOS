@@ -9,19 +9,25 @@
 #include <limits.h>
 void fill_page_with_hash(void* addr, uint64_t page_size) ;
 int check_page_hash(void* addr, uint64_t page_size) ;
+void test_pf_alloc();
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
     // int gdb_loop = 1;
     // while(gdb_loop);
-    int pg_num;
     void *mbr_ptr = (void*) (rbx & 0xFFFFFFFF);
-    void *curr_page, *old_page = 0;
     disable_interrupts();
     init_ps2();
     enable_interrupts();
     MMU_init(mbr_ptr);
+    printk("hello world");
+    while(1);
+    return 0;
+}
 
+void test_pf_alloc() {
+    int pg_num;
+    void *curr_page, *old_page = 0;
     pg_num = 0;
     while((curr_page = MMU_pf_alloc())) {
         printk("%p\n", curr_page);
@@ -38,9 +44,6 @@ int kmain(uint64_t rbx) {
         }
         pg_num++;
     } 
-
-    while(1);
-    return 0;
 }
 
 void fill_page_with_hash(void* addr, uint64_t page_size) {

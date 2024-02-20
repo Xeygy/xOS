@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "print.h"
+#include "string.h"
 
 #define ALIGN_8_BYTE(val) ((val + 7) / 8 ) * 8 
 #define PF_SIZE_BYTES 4096
@@ -67,6 +68,24 @@ typedef struct mem_chunk {
     uint64_t byteSize;
 } __attribute__((packed)) mem_chunk;
 
+/* page table entry */
+typedef struct pte {
+    uint64_t present:1;
+    uint64_t read_write:1;
+    uint64_t user:1;
+    uint64_t write_through:1;
+    uint64_t cache_disable:1;
+    uint64_t accessed:1;
+    uint64_t dirty:1;   // misc flags
+    uint64_t huge_pg:1; // misc flags
+    uint64_t global:1;  // misc flags
+    uint64_t demand:1;  // custom flag, set when a page has been alloc'd
+    uint64_t avail1:2;
+    uint64_t base_addr:40;
+    uint64_t avail2:11;
+    uint64_t nx:1;
+} __attribute__((packed)) pte;
+
 static mem_chunk mem_tbl[16]; // table of available mem
 static uint64_t pf_total_ct;
 static int mem_tbl_next_idx; // pointer to next free spot in mem_tbl
@@ -74,9 +93,13 @@ static int mem_tbl_next_idx; // pointer to next free spot in mem_tbl
 static uint64_t next_consecutive_pf_idx; // alloc
 static pf_hdr *free_frames;
 
+static pte *pt4;
+
 static void fill_mem_tbl(void* mmap_tag);
 static void reserve_elf_syms(void* syms_tag);
 static void reserve_mem_tbl(uint64_t start, uint64_t end);
+static int init_pf_alloc(void *mb2_head);
+static int init_page_table();
 
 /* return a pointer to a page frame, returns 0 on error */
 void * MMU_pf_alloc() {
@@ -126,6 +149,71 @@ initialize our table of available memory into mem_tbl
 returns 0 on success, error code on fail
 */
 int MMU_init(void *mb2_head) {
+    init_pf_alloc(mb2_head);
+    init_page_table();
+    return 0;
+}
+
+static int init_page_table() {
+    int i, j, num_entries; 
+    pte *pt3, *pt2;
+    num_entries = PF_SIZE_BYTES / 8; // 8 byte entries
+
+    // clear all in pt4
+    pt4 = MMU_pf_alloc();
+    for (i = 0; i < num_entries; i++) {
+        memset(pt4 + i, 0, 8);
+        pt4[i].read_write = 1;
+    }
+
+    // give kernel first 16 pages
+
+    // first table should be 1 to 1 mapping
+    // this maps 512 * 512 * 2MB = up to 512GB RAM support
+    pt4[0].base_addr = ((uint64_t) MMU_pf_alloc()) >> 12; // lvl 4->3
+    pt4[0].present = 1;
+    pt3 = (void *) (uint64_t) (pt4[0].base_addr << 12); 
+    // outer loop for each entry in the pt3
+    for (i = 0; i < PF_SIZE_BYTES/sizeof(pte); i++) {
+        memset(pt3 + i, 0, 8);
+        pt3[i].present = 1;
+        pt3[i].base_addr = ((uint64_t) MMU_pf_alloc()) >> 12; // 3->2
+        pt2 = (void *) (uint64_t) (pt3[i].base_addr << 12);
+        // inner loop for each entry in the pt2
+        for (j = 0; j<PF_SIZE_BYTES/sizeof(pte); j++) {
+            memset(pt2 + j, 0, 8);
+            pt2[j].huge_pg =  1;
+            pt2[j].base_addr = (i * 0x20000) >> 12; // 2MiB huge pages
+            pt2[j].present = 1;
+            pt2[j].read_write = 1;
+        }
+    }
+
+    // call cr3
+    asm volatile ("movq %0, %%cr3" 
+                :
+                : "r"(pt4)); 
+    // mmio is in there???
+    return 0;
+}
+
+/* takes a virtual address and returns the actual mem address 
+static void* virt_addr_to_real(uint64_t virt_addr) {
+    uint64_t offset4, offset3, offset2, offset1, offset_phys;
+    offset4 = (virt_addr >> 39) & 0x1FF;
+    offset3 = (virt_addr >> 30) & 0x1FF;
+    offset2 = (virt_addr >> 21) & 0x1FF;
+    offset1 = (virt_addr >> 12) & 0x1FF;
+    offset_phys = (virt_addr >> 12) & 0xFFF;
+
+    // first table should be 1 to 1 mapping
+} */
+
+/*
+set up our pf allocator so we can use pf_alloc & free
+returns 0 on success, error code on fail
+*/
+static int init_pf_alloc(void *mb2_head) {
     mb2_info_hdr* header = mb2_head;
     mb2_tag_hdr* curr_tag_hdr;
     int end_mb2, i;
@@ -164,14 +252,12 @@ int MMU_init(void *mb2_head) {
     fill_mem_tbl(mmap);
     // remove any memory that the kernel is using
     reserve_elf_syms(elf_syms);
-    // remove first page frame bytes
+    // remove first page frame bytes, so null isn't alloc'd
     reserve_mem_tbl(0, PF_SIZE_BYTES);
-
 
     for (i = 0; i < mem_tbl_next_idx; i++) {
         // store total page frame count in pf_total_ct
         pf_total_ct += mem_tbl[i].byteSize / PF_SIZE_BYTES;
-
         // make sure chunks are pf_size_bytes aligned
         if (mem_tbl[i].byteSize & (PF_SIZE_BYTES - 1)) {
             // round down
@@ -183,7 +269,6 @@ int MMU_init(void *mb2_head) {
         }
 
     }
-    printk("total pf %lu \n", pf_total_ct);
     return 0;
 }
 
