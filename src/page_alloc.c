@@ -94,6 +94,7 @@ static uint64_t next_consecutive_pf_idx; // alloc
 static pf_hdr *free_frames;
 
 static pte *pt4;
+//static uint64_t kheap_size; // number of pages in heap
 
 static void fill_mem_tbl(void* mmap_tag);
 static void reserve_elf_syms(void* syms_tag);
@@ -196,6 +197,76 @@ static int init_page_table() {
     // mmio is in there???
     return 0;
 }
+
+// allocates the page at virt_addr 
+void *vpage_alloc(uint64_t virt_addr) {
+    uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx, gdb=1;
+    pte *pt3, *pt2, *pt1;
+    while(gdb);
+    // align virt_addr
+    virt_addr -= virt_addr % PF_SIZE_BYTES;
+    pt1_idx = (virt_addr >> 12) & 0x1FF;
+    pt2_idx = (virt_addr >> 21) & 0x1FF;
+    pt3_idx = (virt_addr >> 30) & 0x1FF;
+    pt4_idx = (virt_addr >> 39) & 0x1FF;
+
+    if (!pt4[pt4_idx].present) {
+        pt4->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
+        memset(pt4 + pt4_idx, 0, 8);
+        pt4[pt4_idx].present = 1;
+        pt4[pt4_idx].read_write = 1;
+    }
+    pt3 = ((pte *) (uint64_t) (pt4[pt4_idx].base_addr << 12));
+    if (!pt3[pt3_idx].present) {
+        pt3->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
+        memset(pt3 + pt3_idx, 0, 8);
+        pt3[pt3_idx].present = 1;
+        pt3[pt3_idx].read_write = 1;
+    }
+    pt2 = ((pte *) (uint64_t) (pt3[pt3_idx].base_addr << 12));
+    if (!pt2[pt2_idx].present) {
+        pt2->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
+        memset(pt2 + pt2_idx, 0, 8);
+        pt2[pt2_idx].present = 1;
+        pt2[pt2_idx].read_write = 1;
+    }
+    pt1 = ((pte *) (uint64_t) (pt2[pt2_idx].base_addr << 12));
+    if (!pt1[pt1_idx].present) {
+        pt1->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
+        memset(pt1 + pt1_idx, 0, 8);
+        pt1[pt1_idx].present = 1;
+        pt1[pt1_idx].read_write = 1;
+    }
+    return (void *) virt_addr;
+}
+
+/* frees the page at virt_addr 
+static void vpage_free(uint64_t virt_addr) {
+    uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx;
+    pte *pt3, *pt2, *pt1;
+    pt1_idx = (virt_addr >> 12) & 0x1FF;
+    pt2_idx = (virt_addr >> 21) & 0x1FF;
+    pt3_idx = (virt_addr >> 30) & 0x1FF;
+    pt4_idx = (virt_addr >> 39) & 0x1FF;
+
+    if (!pt4[pt4_idx].present) {
+        return;
+    }
+    pt3 = ((pte *) (uint64_t) (pt4[pt4_idx].base_addr << 12));
+    if (!pt3[pt3_idx].present) {
+        return;
+    }
+    pt2 = ((pte *) (uint64_t) (pt3[pt3_idx].base_addr << 12));
+    if (!pt2[pt2_idx].present) {
+        return;
+    }
+    pt1 = ((pte *) (uint64_t) (pt2[pt2_idx].base_addr << 12));
+    if (!pt1[pt1_idx].present) {
+        return;
+    }
+    MMU_pf_free((void*) (uint64_t) (pt1[pt1_idx].base_addr << 12));
+    pt1[pt1_idx].present = 0;
+}*/
 
 /* takes a virtual address and returns the actual mem address 
 static void* virt_addr_to_real(uint64_t virt_addr) {

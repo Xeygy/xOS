@@ -5,6 +5,7 @@
 #include "page_alloc.h"
 #include "asm.h"
 #include "string.h"
+#include "page_alloc.h"
 #include <stdint.h>
 #include <limits.h>
 void fill_page_with_hash(void* addr, uint64_t page_size) ;
@@ -16,11 +17,16 @@ int kmain(uint64_t rbx) {
     // int gdb_loop = 1;
     // while(gdb_loop);
     void *mbr_ptr = (void*) (rbx & 0xFFFFFFFF);
+    //uint64_t *vptr = (uint64_t *) 0xB0BBEEFF000;
     disable_interrupts();
     init_ps2();
     enable_interrupts();
     MMU_init(mbr_ptr);
     printk("hello world");
+    vpage_alloc(0xB0BBEEFF000);
+    //vpage_alloc(0xAB0BBEEFF000);
+    //printk("vptr val: %lu", * vptr);
+
     while(1);
     return 0;
 }
