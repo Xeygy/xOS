@@ -13,5 +13,6 @@ int MMU_init(void *mb2_head);
 void pf_isr();
 
 void *vpage_alloc(uint64_t virt_addr);
+void *vpage_free(uint64_t virt_addr);
 
 #endif

@@ -49,6 +49,13 @@ static inline void ltr(void *offset) {
 }
 
 /*
+invalidates entry in tlb
+*/
+static inline void invlpg(void *vaddr) {
+    asm volatile ( "invlpg (%0)" : : "b"(vaddr) : "memory" );
+}
+
+/*
     DO NOT USE FOR GENERAL INTERRUPT ENABLE 
     use the wrapper enable_interrupts() in
     interrupts.h, so we can track if interrupts

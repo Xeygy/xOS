@@ -22,12 +22,14 @@ int kmain(uint64_t rbx) {
     enable_interrupts();
     MMU_init(mbr_ptr);
     printk("hello world\n");
-    //while(gdb);
+   // while(gdb);
     vpage_alloc((uint64_t) vptr);
     //vpage_alloc(0xAB0BBEEFF000);
     printk("vptr val: %lu\n", * vptr);
     *vptr = 0xFEEDBEEF;
     printk("vptr val: %lx\n", * vptr);
+    vpage_free((uint64_t) vptr);
+    printk("fault: %lx\n", * vptr);
     while(1);
     return 0;
 }

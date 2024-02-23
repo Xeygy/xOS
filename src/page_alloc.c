@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "print.h"
 #include "string.h"
+#include "asm.h"
 
 #define ALIGN_8_BYTE(val) ((val + 7) / 8 ) * 8 
 #define PF_SIZE_BYTES 4096
@@ -243,14 +244,11 @@ void *vpage_alloc(uint64_t virt_addr) {
         pt1[pt1_idx].present = 1;
         pt1[pt1_idx].read_write = 1;
     }
-    asm volatile ("movq %0, %%cr3" 
-                :
-                : "r"(pt4)); 
     return (void *) virt_addr;
 }
 
-/* frees the page at virt_addr 
-static void vpage_free(uint64_t virt_addr) {
+// frees the page at virt_addr 
+void vpage_free(uint64_t virt_addr) {
     uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx;
     pte *pt3, *pt2, *pt1;
     pt1_idx = (virt_addr >> 12) & 0x1FF;
@@ -275,7 +273,9 @@ static void vpage_free(uint64_t virt_addr) {
     }
     MMU_pf_free((void*) (uint64_t) (pt1[pt1_idx].base_addr << 12));
     pt1[pt1_idx].present = 0;
-}*/
+    // let tlb know
+    invlpg((void *) virt_addr);
+}
 
 /* takes a virtual address and returns the actual mem address 
 static void* virt_addr_to_real(uint64_t virt_addr) {
