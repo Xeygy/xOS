@@ -14,19 +14,20 @@ void test_pf_alloc();
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
-    // int gdb_loop = 1;
-    // while(gdb_loop);
+    //int gdb = 1;
     void *mbr_ptr = (void*) (rbx & 0xFFFFFFFF);
-    //uint64_t *vptr = (uint64_t *) 0xB0BBEEFF000;
+    uint64_t *vptr = (uint64_t *) 0xB0BBEEFF000;
     disable_interrupts();
     init_ps2();
     enable_interrupts();
     MMU_init(mbr_ptr);
-    printk("hello world");
-    vpage_alloc(0xB0BBEEFF000);
+    printk("hello world\n");
+    //while(gdb);
+    vpage_alloc((uint64_t) vptr);
     //vpage_alloc(0xAB0BBEEFF000);
-    //printk("vptr val: %lu", * vptr);
-
+    printk("vptr val: %lu\n", * vptr);
+    *vptr = 0xFEEDBEEF;
+    printk("vptr val: %lx\n", * vptr);
     while(1);
     return 0;
 }

@@ -19,6 +19,7 @@ gen_isr:
     push r9
     push r10
     push r11
+    mov rsi, [rsp + 72]   ;; 72 bit = 9 bytes pushed
     call generic_handler
     
     ;; pop volatile

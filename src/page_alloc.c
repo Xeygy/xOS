@@ -4,6 +4,7 @@
 
 #define ALIGN_8_BYTE(val) ((val + 7) / 8 ) * 8 
 #define PF_SIZE_BYTES 4096
+#define GIGABYTE 0x40000000
 
 // https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Boot-information-format
 typedef enum {
@@ -101,6 +102,7 @@ static void reserve_elf_syms(void* syms_tag);
 static void reserve_mem_tbl(uint64_t start, uint64_t end);
 static int init_pf_alloc(void *mb2_head);
 static int init_page_table();
+static void * MMU_pf_alloc_and_clean();
 
 /* return a pointer to a page frame, returns 0 on error */
 void * MMU_pf_alloc() {
@@ -132,6 +134,16 @@ void * MMU_pf_alloc() {
     }
 }
 
+/* alloc a page frame, and set all values to 0, returns 0 on failure*/
+static void * MMU_pf_alloc_and_clean() {
+    void * pf;
+    pf = MMU_pf_alloc();
+    if (pf) {
+        memset(pf, 0, PF_SIZE_BYTES);
+    }
+    return pf;
+}
+
 void MMU_pf_free(void *pf) {
     pf_hdr *pf_start, *tmp;
 
@@ -156,8 +168,8 @@ int MMU_init(void *mb2_head) {
 }
 
 static int init_page_table() {
-    int i, j, num_entries; 
-    pte *pt3, *pt2;
+    int i, num_entries; 
+    pte *pt3;
     num_entries = PF_SIZE_BYTES / 8; // 8 byte entries
 
     // clear all in pt4
@@ -178,16 +190,9 @@ static int init_page_table() {
     for (i = 0; i < PF_SIZE_BYTES/sizeof(pte); i++) {
         memset(pt3 + i, 0, 8);
         pt3[i].present = 1;
-        pt3[i].base_addr = ((uint64_t) MMU_pf_alloc()) >> 12; // 3->2
-        pt2 = (void *) (uint64_t) (pt3[i].base_addr << 12);
-        // inner loop for each entry in the pt2
-        for (j = 0; j<PF_SIZE_BYTES/sizeof(pte); j++) {
-            memset(pt2 + j, 0, 8);
-            pt2[j].huge_pg =  1;
-            pt2[j].base_addr = (i * 0x20000) >> 12; // 2MiB huge pages
-            pt2[j].present = 1;
-            pt2[j].read_write = 1;
-        }
+        pt3[i].base_addr = (i * GIGABYTE) >> 12; // 1GB huge pages
+        pt3[i].huge_pg = 1;
+        pt3[i].read_write = 1;
     }
 
     // call cr3
@@ -200,43 +205,47 @@ static int init_page_table() {
 
 // allocates the page at virt_addr 
 void *vpage_alloc(uint64_t virt_addr) {
-    uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx, gdb=1;
+    uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx;
     pte *pt3, *pt2, *pt1;
-    while(gdb);
+    // int gdb = 1;
+    // while(gdb);
     // align virt_addr
-    virt_addr -= virt_addr % PF_SIZE_BYTES;
+    virt_addr = virt_addr & ~0xFFF;
     pt1_idx = (virt_addr >> 12) & 0x1FF;
     pt2_idx = (virt_addr >> 21) & 0x1FF;
     pt3_idx = (virt_addr >> 30) & 0x1FF;
     pt4_idx = (virt_addr >> 39) & 0x1FF;
 
     if (!pt4[pt4_idx].present) {
-        pt4->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
         memset(pt4 + pt4_idx, 0, 8);
+        pt4[pt4_idx].base_addr = ((uint64_t) MMU_pf_alloc_and_clean()) >> 12;
         pt4[pt4_idx].present = 1;
         pt4[pt4_idx].read_write = 1;
     }
     pt3 = ((pte *) (uint64_t) (pt4[pt4_idx].base_addr << 12));
     if (!pt3[pt3_idx].present) {
-        pt3->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
         memset(pt3 + pt3_idx, 0, 8);
+        pt3[pt3_idx].base_addr = ((uint64_t) MMU_pf_alloc_and_clean()) >> 12;
         pt3[pt3_idx].present = 1;
         pt3[pt3_idx].read_write = 1;
     }
     pt2 = ((pte *) (uint64_t) (pt3[pt3_idx].base_addr << 12));
     if (!pt2[pt2_idx].present) {
-        pt2->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
         memset(pt2 + pt2_idx, 0, 8);
+        pt2[pt2_idx].base_addr = ((uint64_t) MMU_pf_alloc_and_clean()) >> 12;
         pt2[pt2_idx].present = 1;
         pt2[pt2_idx].read_write = 1;
     }
     pt1 = ((pte *) (uint64_t) (pt2[pt2_idx].base_addr << 12));
     if (!pt1[pt1_idx].present) {
-        pt1->base_addr = ((uint64_t) MMU_pf_alloc()) >> 12;
         memset(pt1 + pt1_idx, 0, 8);
+        pt1[pt1_idx].base_addr = ((uint64_t) MMU_pf_alloc_and_clean()) >> 12;
         pt1[pt1_idx].present = 1;
         pt1[pt1_idx].read_write = 1;
     }
+    asm volatile ("movq %0, %%cr3" 
+                :
+                : "r"(pt4)); 
     return (void *) virt_addr;
 }
 
@@ -338,7 +347,6 @@ static int init_pf_alloc(void *mb2_head) {
             // round up
             mem_tbl[i].addr = ((mem_tbl[i].addr + PF_SIZE_BYTES - 1) / PF_SIZE_BYTES ) * PF_SIZE_BYTES;
         }
-
     }
     return 0;
 }
@@ -415,4 +423,42 @@ static void reserve_mem_tbl(uint64_t start, uint64_t end) {
             curr -> byteSize -= curr->addr + curr->byteSize - start;
         }
     }
+}
+
+/* handles a page fault */
+void pf_isr() {
+    uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx;
+    pte *pt3, *pt2, *pt1;
+    uint64_t faulting_addr = 0xBEEF;
+    // read 
+    asm volatile ("movq %%cr2, %0"
+                : "=r" (faulting_addr)); 
+
+    printk("page fault on %lx\n", faulting_addr);
+    pt1_idx = (faulting_addr >> 12) & 0x1FF;
+    pt2_idx = (faulting_addr >> 21) & 0x1FF;
+    pt3_idx = (faulting_addr >> 30) & 0x1FF;
+    pt4_idx = (faulting_addr >> 39) & 0x1FF;
+
+    if (!pt4[pt4_idx].present) {
+        printk("4\n");
+        return;
+    }
+    pt3 = ((pte *) (uint64_t) (pt4[pt4_idx].base_addr << 12));
+    if (!pt3[pt3_idx].present) {
+        printk("3\n");
+        return;
+    }
+    pt2 = ((pte *) (uint64_t) (pt3[pt3_idx].base_addr << 12));
+    if (!pt2[pt2_idx].present) {
+        printk("2\n");
+        return;
+    }
+    pt1 = ((pte *) (uint64_t) (pt2[pt2_idx].base_addr << 12));
+    if (!pt1[pt1_idx].present) {
+        printk("1\n");
+        return;
+    }
+    printk("AAAAAAA\n");
+    asm volatile ("hlt");
 }

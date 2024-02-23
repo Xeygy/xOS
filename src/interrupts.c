@@ -4,6 +4,7 @@
 #include "ps2.h"
 #include "string.h"
 #include "serial.h"
+#include "page_alloc.h"
 
 extern void* isr_table[]; // from isr.asm
 extern uint64_t gdt64_tss[]; // from boot.asm
@@ -117,7 +118,7 @@ static void PIC_sendEOI(uint8_t irq);
 static void PIC_remap(int offset1, int offset2);
 static void set_PIC_mask();
 static void firstTimeSetup();
-void generic_handler(void* val);
+void generic_handler(uint64_t isr_num, uint64_t error_code);
 static void keyboard_handler();
 static void setupIdtEntry(idt_entry_t *entry, void * handler, uint16_t type, uint8_t ist);
 static void setupAndLoadTSS();
@@ -251,15 +252,17 @@ static void setupAndLoadTSS() {
 	ltr(gdt64_tss_offset);
 }
 
-void generic_handler(void* val) {
-	uint64_t isr_num = (unsigned long) val;
-	
+void generic_handler(uint64_t isr_num, uint64_t error_code) {
 	switch (isr_num) {
 		case IRQ_KEYBOARD:
 			keyboard_handler();
 			break;
 		case IRQ_SERIAL_1:
 			SER_ISR();
+			break;
+		case ISR_PF:
+			printk("ERROR %lx\n", error_code & 0xFF);
+			pf_isr();
 			break;
 		default:
 			printk("Interrupt 0x%lx not handled, stopping...\n", isr_num);
