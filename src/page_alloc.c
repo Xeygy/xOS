@@ -104,6 +104,8 @@ static void reserve_mem_tbl(uint64_t start, uint64_t end);
 static int init_pf_alloc(void *mb2_head);
 static int init_page_table();
 static void * MMU_pf_alloc_and_clean();
+//static void *vpage_alloc(uint64_t virt_addr);
+//static void vpage_free(uint64_t virt_addr);
 
 /* return a pointer to a page frame, returns 0 on error */
 void * MMU_pf_alloc() {
@@ -208,8 +210,7 @@ static int init_page_table() {
 void *vpage_alloc(uint64_t virt_addr) {
     uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx;
     pte *pt3, *pt2, *pt1;
-    // int gdb = 1;
-    // while(gdb);
+
     // align virt_addr
     virt_addr = virt_addr & ~0xFFF;
     pt1_idx = (virt_addr >> 12) & 0x1FF;
@@ -240,8 +241,8 @@ void *vpage_alloc(uint64_t virt_addr) {
     pt1 = ((pte *) (uint64_t) (pt2[pt2_idx].base_addr << 12));
     if (!pt1[pt1_idx].present) {
         memset(pt1 + pt1_idx, 0, 8);
-        pt1[pt1_idx].base_addr = ((uint64_t) MMU_pf_alloc_and_clean()) >> 12;
-        pt1[pt1_idx].present = 1;
+        // demand paging hack
+        pt1[pt1_idx].demand = 1; 
         pt1[pt1_idx].read_write = 1;
     }
     return (void *) virt_addr;
@@ -426,39 +427,45 @@ static void reserve_mem_tbl(uint64_t start, uint64_t end) {
 }
 
 /* handles a page fault */
-void pf_isr() {
+void pf_isr(uint64_t error_code) {
     uint64_t pt4_idx, pt3_idx, pt2_idx, pt1_idx;
     pte *pt3, *pt2, *pt1;
-    uint64_t faulting_addr = 0xBEEF;
+    uint64_t faulting_addr = 0xBEEFCAFE;
     // read 
     asm volatile ("movq %%cr2, %0"
                 : "=r" (faulting_addr)); 
-
-    printk("page fault on %lx\n", faulting_addr);
+    printk("page fault on %lx, error code %lx\n", faulting_addr, error_code);
     pt1_idx = (faulting_addr >> 12) & 0x1FF;
     pt2_idx = (faulting_addr >> 21) & 0x1FF;
     pt3_idx = (faulting_addr >> 30) & 0x1FF;
     pt4_idx = (faulting_addr >> 39) & 0x1FF;
 
     if (!pt4[pt4_idx].present) {
-        printk("4\n");
-        return;
+        printk("level 4 not present\n");
+        asm volatile ("hlt");
     }
     pt3 = ((pte *) (uint64_t) (pt4[pt4_idx].base_addr << 12));
     if (!pt3[pt3_idx].present) {
-        printk("3\n");
-        return;
+        printk("level 3 not present\n");
+        asm volatile ("hlt");
     }
     pt2 = ((pte *) (uint64_t) (pt3[pt3_idx].base_addr << 12));
     if (!pt2[pt2_idx].present) {
-        printk("2\n");
-        return;
+        printk("level 2 not present\n");
+        asm volatile ("hlt");
     }
     pt1 = ((pte *) (uint64_t) (pt2[pt2_idx].base_addr << 12));
-    if (!pt1[pt1_idx].present) {
-        printk("1\n");
-        return;
+    if (pt1[pt1_idx].demand) {
+        // demand paging
+        pt1[pt1_idx].base_addr = ((uint64_t) MMU_pf_alloc_and_clean()) >> 12;
+        pt1[pt1_idx].present = 1;
+        pt1[pt1_idx].demand = 0;
+    }else if (pt1[pt1_idx].present) {
+        printk("level 1 present\n");
+        asm volatile ("hlt");
+    } else {
+        printk("level 1 not present\n");
+        asm volatile ("hlt");
     }
-    printk("AAAAAAA\n");
-    asm volatile ("hlt");
+    return;
 }

@@ -261,8 +261,7 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 			SER_ISR();
 			break;
 		case ISR_PF:
-			printk("ERROR %lx\n", error_code & 0xFF);
-			pf_isr();
+			pf_isr(error_code & 0xFF);
 			break;
 		default:
 			printk("Interrupt 0x%lx not handled, stopping...\n", isr_num);

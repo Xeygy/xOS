@@ -24,7 +24,6 @@ int kmain(uint64_t rbx) {
     printk("hello world\n");
    // while(gdb);
     vpage_alloc((uint64_t) vptr);
-    //vpage_alloc(0xAB0BBEEFF000);
     printk("vptr val: %lu\n", * vptr);
     *vptr = 0xFEEDBEEF;
     printk("vptr val: %lx\n", * vptr);

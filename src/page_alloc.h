@@ -10,7 +10,7 @@ void MMU_pf_free(void *pf);
 int MMU_init(void *mb2_head);
 
 /* page fault handler */
-void pf_isr();
+void pf_isr(uint64_t error_code);
 
 void *vpage_alloc(uint64_t virt_addr);
 void *vpage_free(uint64_t virt_addr);
