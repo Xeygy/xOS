@@ -4,7 +4,7 @@
 #include <stdint.h>
 /* free a malloc'd addr */
 void kfree(void *addr);
-/* get an allocated block of size */
+/* get an allocated block of size bytes*/
 void *kmalloc(size_t size);
 
 void *kcalloc(size_t nmemb, size_t size);

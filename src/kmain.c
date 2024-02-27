@@ -17,17 +17,15 @@ void test_pf_alloc();
 #define LONGTEXT "howdy the aim of the game is to try and fill up a lot of text!!!!"
 #define LONGERTEXT "howdy the aim of the game is to try and fill up a lot more text!!!! hahahahahahahahahahahahahahahahahahahahahahahahahaha :) neato :^) ....."
 #define NEATO "neato"
-void testmalloc1();
-int *getOne();
-void testCalloc();
-void testRealloc();
-void testRealloc2();
-void testRealloc3();
-char *getHW();
+void test_vpage_alloc();
+void testmalloc();
+void *mallocFill(uint64_t sizeB, char val);
+int checkFill(void * addr, uint64_t sizeB, char val);
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
-    //int gdb = 1;
+    // int gdb = 1;
+    // while(gdb);
     void *mbr_ptr = (void*) (rbx & 0xFFFFFFFF);
     //uint64_t *vptr = (uint64_t *) 0xB0BBEEFF000;
     disable_interrupts();
@@ -35,116 +33,77 @@ int kmain(uint64_t rbx) {
     enable_interrupts();
     MMU_init(mbr_ptr);
 
-    // testmalloc1();
-    //testCalloc();
-    // testRealloc();
-    testRealloc2();
+    testmalloc();
+    //test_vpage_alloc();
 
     while(1);
     return 0;
 }
 
-void testRealloc2() {
-    int i;
-    void *ptr;
-    for (i = 1; i <= 8192; i++) {
-        if (i % 2 == 1) {
-            ptr =kmalloc(i);
-        } else {
-            ptr =krealloc(ptr, i);
+void test_vpage_alloc() {
+    int pg_num;
+    void *curr_page = (void *)0xBEEFCAFE000, 
+    *old_page = (void *) 0;
+    pg_num = 0;
+    while(pg_num < 10000) {
+        curr_page = vpage_alloc((uint64_t) curr_page);
+        printk("%p\n", curr_page);
+        fill_page_with_hash(curr_page, 4096);
+        check_page_hash(curr_page, 4096);
+        
+        // every 7, free old page and update old_page to curr_page
+        if (pg_num % 7 == 0) {
+            if (old_page != 0) {
+                check_page_hash(old_page, 4096);
+                vpage_free((uint64_t) old_page);
+            }
+            old_page = curr_page;
+        }
+        pg_num++;
+        curr_page += 4096 * 7;
+    } 
+}
+
+
+void testmalloc() {
+    uint64_t i = 0, fill_size, old_sz;
+    char fill_val, old_val;
+    void *old = 0, *curr;
+    for (i = 0; i < 10000; i++) {
+        fill_size = (i % 2000) * 3 + 1;
+        fill_val = (i % 90) + 33;
+        curr = mallocFill(fill_size, fill_val);
+        if (i % 11 == 2) {
+            if (old != 0) {
+                checkFill(old, old_sz, old_val);
+                kfree(old);
+            }
+            old = curr;
+            old_val = fill_val;
+            old_sz = fill_size;
         }
     }
+    printk("malloc test success");
 }
 
-void testCalloc() {
-    char *helloWorld;
-    char *arr[100];
+/* mallocs a ptr of sizeB and fills with val */
+void *mallocFill(uint64_t sizeB, char val) {
+    void *ans = kmalloc(sizeB);
+    memset(ans, val, sizeB);
+    return ans;
+}
+
+int checkFill(void * addr, uint64_t sizeB, char val) {
     int i;
-    sbrk(1);
-    for (i = 0; i < 100; i++) {
-        helloWorld = getHW();
-        arr[i] = helloWorld;
+    for (i=0; i<sizeB; i++) {
+        if (*(char *) (addr + i) != val) {
+            printk("test fail");
+            return 0;
+        }
     }
-    kMallocPrintHeap();
-
-    for (i = 99; i >= 51; i--) {
-            kfree(arr[i]);
-    }
-    for (i = 50; i >= 0; i--) {
-            kfree(arr[i]);
-    }
-    kMallocPrintHeap();
-    helloWorld = getHW(); 
-    printk("this is one: %s \n", helloWorld);
-    arr[i] = helloWorld;
-    kfree(helloWorld);
+    return 1;
 }
 
-void testRealloc() {
-    char *st = getHW();
-    char *st2, *st3, *st4, *st5;
-    int i;
-    int len = strlen(LONGTEXT);
-    kMallocPrintHeap();
-    /* in place expansion */
-    st2 =krealloc(st, sizeof(char)*(len+1));
-    for (i = 0; i < len; i++) {
-        st2[i] = LONGTEXT[i];
-    }
-    kMallocPrintHeap();
-    /* shrink */
-    len = strlen(NEATO);
-    st3 =krealloc(st2, sizeof(char)*(len+1));
-    for (i = 0; i < len; i++) {
-        st3[i] = NEATO[i];
-    }
-    /* find new spot */
-    kMallocPrintHeap();
-    len = strlen(LONGERTEXT);
-    st4 =krealloc(st3, sizeof(char)*(len+1));
-    for (i = 0; i < len; i++) {
-        st4[i] = LONGERTEXT[i];
-    }
-    kMallocPrintHeap();
-    st5 =krealloc(st4, 999999999);
-    if (st5 == NULL) {
-        printk("null");
-    }
-    kMallocPrintHeap();
-}
-
-
-void testmalloc1() {
-    int *one, *one2, *one3;
-    one = getOne();
-    one2 = getOne();
-    one3 = getOne();
-    printk("this is one: %d \n", *one);
-    printk("this is one too: %d \n", *one2);
-    kfree(one3);
-    one3 = getOne();
-    printk("this is one as well: %d \n", *one3);
-    one3 = getOne();
-    kfree(one3);
-    kfree(one);
-    kfree(one2);
-}
-int *getOne() {
-    int *one = kmalloc(sizeof(int));
-    *one = 1;
-    return one;
-}
-
-char *getHW() {
-    char *hw = NULL;
-    int i;
-    int len = strlen(HW);
-    hw = (char *)kcalloc(sizeof(char), len + 1);
-    for (i = 0; i < len; i++) {
-        hw[i] = HW[i];
-    }
-    return hw;
-}
 void test_pf_alloc() {
     int pg_num;
     void *curr_page, *old_page = 0;
@@ -176,7 +135,7 @@ int check_page_hash(void* addr, uint64_t page_size) {
     char hash = ((uint64_t)addr / page_size) % 64 + 33;    
     int i;
     for (i=0; i<page_size; i++) {
-        if (*(char *)addr != hash) {
+        if (*(char *) (addr + i) != hash) {
             printk("test fail");
             return 0;
         }

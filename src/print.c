@@ -82,6 +82,7 @@ int printk(const char *fmt, ...) {
 
             case 'p':
                 VGA_and_SER_display_string("0x");
+                is_l = 1;
             case 'x':
                 if (is_h)
                     print_ullong(va_arg(args, unsigned int), 16);
