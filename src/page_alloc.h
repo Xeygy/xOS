@@ -15,4 +15,6 @@ void pf_isr(uint64_t error_code);
 void *vpage_alloc(uint64_t virt_addr);
 void *vpage_free(uint64_t virt_addr);
 
+void *sbrk(signed long incr);
+
 #endif

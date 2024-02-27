@@ -96,7 +96,9 @@ static uint64_t next_consecutive_pf_idx; // alloc
 static pf_hdr *free_frames;
 
 static pte *pt4;
-//static uint64_t kheap_size; // number of pages in heap
+
+// program break for kmalloc, points to the first unalloced mem
+static uint64_t prog_brk; 
 
 static void fill_mem_tbl(void* mmap_tag);
 static void reserve_elf_syms(void* syms_tag);
@@ -198,6 +200,9 @@ static int init_page_table() {
         pt3[i].read_write = 1;
     }
 
+    // second table (at idx 1) is heap 
+    prog_brk = (((uint64_t) 1) << 39);
+
     // call cr3
     asm volatile ("movq %0, %%cr3" 
                 :
@@ -278,6 +283,38 @@ void vpage_free(uint64_t virt_addr) {
     invlpg((void *) virt_addr);
 }
 
+/* 
+Increments kernel heap by increment bytes. 
+On success, sbrk() returns the previous program break. 
+    (If the break was increased, then this value is a pointer 
+    to the start of the newly allocated memory). 
+On error, (void *) -1 is returned.
+*/
+void *sbrk(signed long incr) {
+    uint64_t new_brk, old_brk, 
+    new_present_page_idx, old_present_page_idx, 
+    new_alloc_ct, i;
+
+    old_brk = prog_brk;
+    new_brk = prog_brk + incr;
+    // note we -1 from the brks to get the present page addr (brks are exclusive)
+    old_present_page_idx = ((old_brk - 1) >> 12);
+    new_present_page_idx = ((new_brk - 1) >> 12);
+
+    if (incr > 0) {
+        // check if we need to alloc a new page 
+        if ((new_alloc_ct = (new_present_page_idx - old_present_page_idx)) > 0) {
+            for (i = 1; i <= new_alloc_ct; i++) {
+                vpage_alloc((old_present_page_idx + i) << 12);
+            }
+        }
+    } else if (incr < 0) {
+        printk("not implemented: negative sbrk incr \n");
+        return (void *) -1;
+    }
+    prog_brk = new_brk;
+    return (void *) old_brk;
+}
 /* takes a virtual address and returns the actual mem address 
 static void* virt_addr_to_real(uint64_t virt_addr) {
     uint64_t offset4, offset3, offset2, offset1, offset_phys;
