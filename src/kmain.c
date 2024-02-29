@@ -33,11 +33,35 @@ int kmain(uint64_t rbx) {
     enable_interrupts();
     MMU_init(mbr_ptr);
 
-    testmalloc();
-    //test_vpage_alloc();
-
     while(1);
     return 0;
+}
+
+void testmalloc() {
+    uint64_t i = 0, fill_size, old_sz;
+    char fill_val, old_val;
+    void *old = 0, *curr;
+    
+    kmalloc_set_babble(1);
+
+    for (i = 0; i < 10000; i++) {
+        fill_size = (i % 2000) * 3 + 1;
+        fill_val = (i % 90) + 33;
+        curr = mallocFill(fill_size, fill_val);
+        if (i % 11 == 2) {
+            if (old != 0) {
+                checkFill(old, old_sz, old_val);
+                kfree(old);
+            }
+            old = curr;
+            old_val = fill_val;
+            old_sz = fill_size;
+        }
+    }
+    
+    kmalloc_set_babble(0);
+
+    printk("malloc test success");
 }
 
 void test_vpage_alloc() {
@@ -62,28 +86,6 @@ void test_vpage_alloc() {
         pg_num++;
         curr_page += 4096 * 7;
     } 
-}
-
-
-void testmalloc() {
-    uint64_t i = 0, fill_size, old_sz;
-    char fill_val, old_val;
-    void *old = 0, *curr;
-    for (i = 0; i < 10000; i++) {
-        fill_size = (i % 2000) * 3 + 1;
-        fill_val = (i % 90) + 33;
-        curr = mallocFill(fill_size, fill_val);
-        if (i % 11 == 2) {
-            if (old != 0) {
-                checkFill(old, old_sz, old_val);
-                kfree(old);
-            }
-            old = curr;
-            old_val = fill_val;
-            old_sz = fill_size;
-        }
-    }
-    printk("malloc test success");
 }
 
 /* mallocs a ptr of sizeB and fills with val */

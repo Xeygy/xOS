@@ -20,6 +20,7 @@ typedef struct header {
 
 static Header *heap;
 static int heapInit = 0;
+static int debugMode = 0;
 
 int initializeHeap();
 void shrinkH(Header *h, size_t needed);
@@ -29,19 +30,28 @@ void *callocRaw(size_t nmemb, size_t size);
 void *reallocRaw(void *ptr, size_t size);
 void freeRaw(void *ptr);
 
+/* 
+set to 0 to disable babbling, 
+otherwise babble away 
+*/
+void kmalloc_set_babble(int val) {
+    debugMode = val;
+}
 /* wrapper around mallocRaw for print debugging */
 void *kmalloc(size_t size) {
     void *res = mallocRaw(size);
     void *start = NULL;
     Header *h = NULL;
-    if (res == NULL) {
-        printk("MALLOC: malloc(%d) => (ptr=%p,size=%d) \n",
-        (int) size, NULL, 0);
-    } else {
-        start = (void *) ((uintptr_t) res - sizeof(Header));
-        h = (Header *) start;
-        printk("MALLOC: malloc(%d) => (ptr=%p,size=%d) \n",
-        (int) size, start, (int) h->size);
+    if (debugMode) {
+        if (res == NULL) {
+            printk("MALLOC: malloc(%d) => (ptr=%p,size=%d) \n",
+            (int) size, NULL, 0);
+        } else {
+            start = (void *) ((uintptr_t) res - sizeof(Header));
+            h = (Header *) start;
+            printk("MALLOC: malloc(%d) => (ptr=%p,size=%d) \n",
+            (int) size, start, (int) h->size);
+        }
     }
     return res;
 }
@@ -51,14 +61,16 @@ void *kcalloc(size_t nmemb, size_t size) {
     void *res = callocRaw(nmemb, size);
     void *start = NULL;
     Header *h = NULL;
-    if (res == NULL) {
-        printk("MALLOC: calloc(%d,%d) => (ptr=%p, size=%d) \n",
-        (int) nmemb, (int) size, NULL, 0);
-    } else {
-        start = (void *) ((uintptr_t) res - sizeof(Header));
-        h = (Header *) start;
-        printk("MALLOC: calloc(%d,%d) => (ptr=%p, size=%d) \n",
-        (int) nmemb, (int) size, start, (int) h->size);
+    if (debugMode) {
+        if (res == NULL) {
+            printk("MALLOC: calloc(%d,%d) => (ptr=%p, size=%d) \n",
+            (int) nmemb, (int) size, NULL, 0);
+        } else {
+            start = (void *) ((uintptr_t) res - sizeof(Header));
+            h = (Header *) start;
+            printk("MALLOC: calloc(%d,%d) => (ptr=%p, size=%d) \n",
+            (int) nmemb, (int) size, start, (int) h->size);
+        }
     }
     return res;
 }
@@ -68,14 +80,16 @@ void *krealloc(void *ptr, size_t size) {
     void *res = reallocRaw(ptr, size);
     void *start = NULL;
     Header *h = NULL;
-    if (res == NULL) {
-        printk("MALLOC: realloc(%p,%d) => (ptr=%p,size=%d) \n",
-        ptr, (int) size, NULL, 0);
-    } else {
-        start = (void *) ((uintptr_t) res - sizeof(Header));
-        h = (Header *) start;
-        printk("MALLOC: realloc(%p,%d) => (ptr=%p,size=%d) \n",
-        ptr, (int) size, start, (int) h->size);
+    if (debugMode) { 
+        if (res == NULL) {
+            printk("MALLOC: realloc(%p,%d) => (ptr=%p,size=%d) \n",
+            ptr, (int) size, NULL, 0);
+        } else {
+            start = (void *) ((uintptr_t) res - sizeof(Header));
+            h = (Header *) start;
+            printk("MALLOC: realloc(%p,%d) => (ptr=%p,size=%d) \n",
+            ptr, (int) size, start, (int) h->size);
+        }
     }
     return res;
 }
@@ -83,10 +97,12 @@ void *krealloc(void *ptr, size_t size) {
 /* wrapper around freeRaw for print debugging*/
 void kfree(void *ptr) {
     freeRaw(ptr);
-    if (ptr==NULL) {
-        printk("MALLOC: free(NULL) \n");       
-    } else {
-        printk("MALLOC: free(%p) \n", ptr);
+    if (debugMode) {
+        if (ptr==NULL) {
+            printk("MALLOC: free(NULL) \n");       
+        } else {
+            printk("MALLOC: free(%p) \n", ptr);
+        }
     }
 }
 
