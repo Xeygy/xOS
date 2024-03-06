@@ -6,6 +6,7 @@
 #include "serial.h"
 #include "page_alloc.h"
 
+extern void* syscall_isr; // from isr.asm
 extern void* isr_table[]; // from isr.asm
 extern uint64_t gdt64_tss[]; // from boot.asm
 extern uint64_t gdt64_tss_offset[];  // from boot.asm
@@ -47,6 +48,8 @@ extern uint64_t gdt64_tss_offset[];  // from boot.asm
 #define ISR_DF 8  /* Double Fault */
 #define ISR_GP 13 /* General Protection  */
 #define ISR_PF 14 /* Page Fault */
+#define ISR_SYSCALL 0x80 /* Page Fault */
+
 #define STACK_SIZE 2048/8 /* 2kb, stack size of the tss ist stacks */
 
 #define IRQ_TIMER 0x20
@@ -166,7 +169,12 @@ static void firstTimeSetup() {
 		} else {
 			ist_idx = 0;
 		}
-		setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, ist_idx);
+		if (i == ISR_SYSCALL) {
+			// special syscall case
+			setupIdtEntry(&idt[i], &syscall_isr, IDT_INT_GATE, ist_idx);
+		} else {
+			setupIdtEntry(&idt[i], isr_table[i], IDT_INT_GATE, ist_idx);
+		}
 	}
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_NUM_ENTRIES - 1;
@@ -264,7 +272,7 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 			pf_isr(error_code & 0xFF);
 			break;
 		default:
-			printk("Interrupt 0x%lx not handled, stopping...\n", isr_num);
+			printk("Interrupt 0x%lx not handled, stopping..., error code %ld\n", isr_num, error_code & 0xFF);
 			disable_interrupts();
 			asm volatile ("hlt");
 	}
@@ -272,6 +280,18 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 	if (isr_num >= 0x20 && isr_num <= 0x2f) {
 		// is a hardware interrupt, notify PIC that it's handled
 		PIC_sendEOI(isr_num - 0x20);
+	}
+}
+
+void syscall_handler(uint64_t syscall_num) {
+	printk("syscall: %ld\n", syscall_num);
+	switch(syscall_num) {
+		case 1:
+			// yield
+			break;
+		case 2:
+			// exit
+			break;
 	}
 }
 

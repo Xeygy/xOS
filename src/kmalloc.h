@@ -1,6 +1,7 @@
 #ifndef KMALLOC_H
 #define KMALLOC_H
 
+#include <stddef.h>
 #include <stdint.h>
 /* free a malloc'd addr */
 void kfree(void *addr);

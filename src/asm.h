@@ -56,6 +56,19 @@ static inline void invlpg(void *vaddr) {
 }
 
 /*
+    calls int 0x80 with syscall num
+    returns a value from the syscall
+*/
+static inline uint64_t syscall(uint64_t num) {
+    asm volatile (
+        "mov %0, %%rdi\n\t"
+        "int $0x80" : : "r" (num)
+        );
+    // placeholder, just return syscall num for now
+    return num;
+}
+
+/*
     DO NOT USE FOR GENERAL INTERRUPT ENABLE 
     use the wrapper enable_interrupts() in
     interrupts.h, so we can track if interrupts

@@ -2,8 +2,6 @@
 #include "string.h"
 #include "kmalloc.h"
 #include "page_alloc.h"
-#include <stddef.h>
-#include <stdint.h>
 
 #define CHUNK_SIZE 2048 /* must be > sizeof(header)*/
 
