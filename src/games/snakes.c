@@ -1,3 +1,5 @@
+// adapted to work with xOS to test threading
+
 /*
  * snake:  This is a demonstration program to investigate the viability
  *         of a curses-based assignment.

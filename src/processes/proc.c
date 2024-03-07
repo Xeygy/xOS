@@ -12,7 +12,6 @@ static void lwp_wrapper(kproc_t fun, void *arg);
 static void yield_sys();
 
 static thread active_head = 0;
-static thread proc_run_thread = 0;
 
 /* must be called before using proc */
 void init_proc() {
@@ -76,7 +75,6 @@ void PROC_run() {
     active_head = main_thread;
     /* Set Stack to null to designate main thread */
     main_thread -> stack = 0;
-    proc_run_thread = main_thread;
     // if other things in scheduler, yield()
     while (active_head -> next != active_head) {
         yield();
