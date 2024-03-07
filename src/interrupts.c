@@ -170,6 +170,7 @@ static void firstTimeSetup() {
 		} else if (i == ISR_PF) {
 			ist_idx = 3;
 		} else if (i == ISR_KEXIT) {
+			// exit must run on separate stack
 			ist_idx = 4;
 		} else {
 			ist_idx = 0;

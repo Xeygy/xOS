@@ -27,8 +27,9 @@ int kmain(uint64_t rbx) {
     init_proc();
 
     syscall(SYS_TEST);
-    PROC_create_kthread(&test_threads, (void *) 0xbeefcafe);
-    PROC_create_kthread(&test_threads, (void *) 0x13371337);
+    PROC_create_kthread(&test_threads, (void *) 6);
+    PROC_create_kthread(&test_threads, (void *) 8);
+    PROC_create_kthread(&test_threads, (void *) 7);
     PROC_run();
     while (1){
         asm volatile ("hlt");
@@ -37,7 +38,7 @@ int kmain(uint64_t rbx) {
 
 void test_threads(void* arg) {
     int i = 0;
-    for (i = 0; i < 10; i++) {
+    for (i = 1; i <= (uint64_t) arg; i++) {
         printk("%d) I am thread %p\n", i, arg);
         yield();    
     }

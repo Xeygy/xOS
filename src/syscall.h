@@ -5,7 +5,7 @@
 
 typedef enum {
 	SYS_YIELD = 1,
-	SYS_EXIT = 2,
+	// note kexit is a separate interrupt so it can use separate stack
     SYS_TEST = 42
 } syscall_num_t;
 
