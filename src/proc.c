@@ -2,6 +2,7 @@
 #include "print.h"
 #include "kmalloc.h"
 #include "asm.h"
+#include "syscall.h"
 #include <stdint.h>
 
 typedef struct __attribute__ ((aligned(16))) __attribute__ ((packed))
@@ -39,14 +40,26 @@ typedef struct threadinfo_st {
   thread        exited;         /* and one for lwp_wait()  */
 } context;
 
+extern void swap_rfiles(rfile *old, rfile *new); // from magic.asm
+
 static thread make_new_active_thread(void);
 static void lwp_wrapper(kproc_t fun, void *arg);
+static void yield_sys();
 
 static thread active_head = 0;
 static thread proc_run_thread = 0;
 
-/* to yield, we call int 80 with a value in the register*/
+/* must be called before using proc */
+void init_proc() {
+    syscall_register_handler(SYS_YIELD, yield_sys);
+}
+
 void yield() {
+    syscall(SYS_YIELD);
+}
+
+/* to yield*/
+static void yield_sys() {
     thread next = 0;
     thread prev = 0;
     /* Invalid Call to Yield, or Nothing to Schedule*/
@@ -70,15 +83,8 @@ void yield() {
     active_head = next;
     
     /* Magic */
-    syscall(1);
-    //swap_rfiles (&(prev->state), &(next->state));
-    printk("swap placeholder %p %p\n", &prev, &next);
+    swap_rfiles(&(prev->state), &(next->state));
     return;
-    /*
-    asm volatile ("movq $60, %rax") // syscall number
-    // movq $2, %rdi // arg
-    
-    */
 }
 
 /* 
@@ -86,27 +92,31 @@ Terminate calling lwp, remove from active,
 put in exited list and yield 
 */
 void exit() {
+    asm volatile ("int $0x81");
+}
+
+void sys_exit() {
     kfree(active_head->stack);
-    if (active_head == active_head->next) {
-        // if nothing left in scheduler, return to PROC_run.
-        active_head = proc_run_thread;
-        
-    } else {
-        // if something in scheduler, remove current from list
-        active_head->prev->next = active_head->next;
-        active_head->next->prev = active_head->prev;
-        active_head = active_head->next;
-    }
-    yield();
-}   
+    // if something in scheduler, remove current from list
+    active_head->prev->next = active_head->next;
+    active_head->next->prev = active_head->prev;
+    active_head = active_head->next;
+
+    swap_rfiles(0, &(active_head->state));
+}
 
 /* runs threads until all are exited */
 void PROC_run() {
     thread main_thread = make_new_active_thread();
+    active_head = main_thread;
     /* Set Stack to null to designate main thread */
     main_thread -> stack = 0;
     proc_run_thread = main_thread;
-    yield();
+    // if other things in scheduler, yield()
+    while (active_head -> next != active_head) {
+        yield();
+    }
+    printk("done\n");
     return;
 }
 

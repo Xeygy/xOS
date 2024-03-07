@@ -3,10 +3,11 @@
 #include "asm.h"
 #include "ps2.h"
 #include "string.h"
+#include "proc.h"
 #include "serial.h"
 #include "page_alloc.h"
 
-extern void* syscall_isr; // from isr.asm
+extern void* syscall_isr; // from syscall.asm
 extern void* isr_table[]; // from isr.asm
 extern uint64_t gdt64_tss[]; // from boot.asm
 extern uint64_t gdt64_tss_offset[];  // from boot.asm
@@ -49,6 +50,7 @@ extern uint64_t gdt64_tss_offset[];  // from boot.asm
 #define ISR_GP 13 /* General Protection  */
 #define ISR_PF 14 /* Page Fault */
 #define ISR_SYSCALL 0x80 /* Page Fault */
+#define ISR_KEXIT 0x81 /* Page Fault */
 
 #define STACK_SIZE 2048/8 /* 2kb, stack size of the tss ist stacks */
 
@@ -113,6 +115,7 @@ static idt_entry_t idt[IDT_NUM_ENTRIES];
 static uint64_t ist1[STACK_SIZE]; // 2kb 
 static uint64_t ist2[STACK_SIZE]; // 2kb
 static uint64_t ist3[STACK_SIZE]; // 2kb
+static uint64_t ist4[STACK_SIZE]; // 2kb
 static idtr_t idtr; 
 static tss_t tss;
 static int enabled, setup;
@@ -166,6 +169,8 @@ static void firstTimeSetup() {
 			ist_idx = 2;
 		} else if (i == ISR_PF) {
 			ist_idx = 3;
+		} else if (i == ISR_KEXIT) {
+			ist_idx = 4;
 		} else {
 			ist_idx = 0;
 		}
@@ -244,6 +249,7 @@ static void setupAndLoadTSS() {
 	tss.IST1 = (uint64_t) ist1 + STACK_SIZE - 1;
 	tss.IST2 = (uint64_t) ist2 + STACK_SIZE - 1;
 	tss.IST3 = (uint64_t) ist3 + STACK_SIZE - 1;
+	tss.IST4 = (uint64_t) ist4 + STACK_SIZE - 1;
 	// tss descriptor
 	desc.limit1 = 0x68; // tss table size
 	desc.base0 = tssAddr & 0xFFFF;
@@ -271,6 +277,9 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 		case ISR_PF:
 			pf_isr(error_code & 0xFF);
 			break;
+		case ISR_KEXIT:
+			sys_exit();
+			break;
 		default:
 			printk("Interrupt 0x%lx not handled, stopping..., error code %ld\n", isr_num, error_code & 0xFF);
 			disable_interrupts();
@@ -280,18 +289,6 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 	if (isr_num >= 0x20 && isr_num <= 0x2f) {
 		// is a hardware interrupt, notify PIC that it's handled
 		PIC_sendEOI(isr_num - 0x20);
-	}
-}
-
-void syscall_handler(uint64_t syscall_num) {
-	printk("syscall: %ld\n", syscall_num);
-	switch(syscall_num) {
-		case 1:
-			// yield
-			break;
-		case 2:
-			// exit
-			break;
 	}
 }
 

@@ -8,6 +8,7 @@
 #include "page_alloc.h"
 #include "kmalloc.h"
 #include "proc.h"
+#include "syscall.h"
 #include <stdint.h>
 #include <limits.h>
 
@@ -23,13 +24,21 @@ int kmain(uint64_t rbx) {
     init_ps2();
     enable_interrupts();
     MMU_init(mbr_ptr);
-    
-    syscall(42);
+    init_proc();
+
+    syscall(SYS_TEST);
     PROC_create_kthread(&test_threads, (void *) 0xbeefcafe);
+    PROC_create_kthread(&test_threads, (void *) 0x13371337);
     PROC_run();
-    return 0;
+    while (1){
+        asm volatile ("hlt");
+    }
 }
 
 void test_threads(void* arg) {
-    printk("I am thread %p", arg);
+    int i = 0;
+    for (i = 0; i < 10; i++) {
+        printk("%d) I am thread %p\n", i, arg);
+        yield();    
+    }
 }
