@@ -471,7 +471,6 @@ void pf_isr(uint64_t error_code) {
     // read 
     asm volatile ("movq %%cr2, %0"
                 : "=r" (faulting_addr)); 
-    printk("page fault on %lx, error code %lx\n", faulting_addr, error_code);
     pt1_idx = (faulting_addr >> 12) & 0x1FF;
     pt2_idx = (faulting_addr >> 21) & 0x1FF;
     pt3_idx = (faulting_addr >> 30) & 0x1FF;

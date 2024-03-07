@@ -7,7 +7,6 @@ static fp handlers[MAX_SYSCALL_CT];
 
 void syscall_handler(syscall_num_t syscall_num) {
 	fp fun;
-	printk("syscall: %d\n", syscall_num);
 	fun = handlers[syscall_num];
 	if (fun != 0) {
 		fun();

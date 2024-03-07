@@ -97,6 +97,19 @@ void scroll() {
     memset(next_r, 0, width * sizeof(unsigned short));
 }
 
+int VGA_row_count(void) {
+    return height;
+}
+int VGA_col_count(void) {
+    return width;
+}
+// display c at x, y
+void VGA_display_attr_char(int x, int y, char c, vga_color_t fg, vga_color_t bg){
+    unsigned char style = FG(fg) | BG(bg);
+    vgaBuff[x + y * width] = (style << 8) | c;
+    return;
+}
+
 /*
     sets cursor position at location.
     see: https://wiki.osdev.org/Text_Mode_Cursor#Moving_the_Cursor_2

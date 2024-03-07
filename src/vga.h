@@ -16,7 +16,7 @@ typedef enum {
 	VGA_LIGHT_CYAN = 11,
 	VGA_LIGHT_RED = 12,
 	VGA_LIGHT_MAGENTA = 13,
-	VGA_LIGHT_BROWN = 14,
+	VGA_YELLOW = 14,
 	VGA_WHITE = 15
 } vga_color_t;
 
@@ -24,5 +24,8 @@ void VGA_clear(void);
 void VGA_display_char(char c);
 void VGA_display_str(const char *p);
 void VGA_set_color(vga_color_t fg, vga_color_t bg);
+int VGA_row_count(void);
+int VGA_col_count(void);
+void VGA_display_attr_char(int x, int y, char c, vga_color_t fg, vga_color_t bg);
 
 #endif

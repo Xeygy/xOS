@@ -3,42 +3,7 @@
 #include "kmalloc.h"
 #include "asm.h"
 #include "syscall.h"
-#include <stdint.h>
 
-typedef struct __attribute__ ((aligned(16))) __attribute__ ((packed))
-registers {
-  unsigned long rax;            /* the sixteen architecturally-visible regs. */
-  unsigned long rbx;
-  unsigned long rcx;
-  unsigned long rdx;
-  unsigned long rsi;
-  unsigned long rdi;
-  unsigned long rbp;
-  unsigned long rsp;
-  unsigned long r8;
-  unsigned long r9;
-  unsigned long r10;
-  unsigned long r11;
-  unsigned long r12;
-  unsigned long r13;
-  unsigned long r14;
-  unsigned long r15;
-  //struct fxsave fxsave;   /* space to save floating point state */
-} rfile;
-
-typedef struct threadinfo_st *thread;
-typedef struct threadinfo_st {
-  uint64_t      tid;            /* lightweight process id  */
-  unsigned long *stack;         /* Base of allocated stack */
-  uint64_t      stacksize;      /* Size of allocated stack */
-  rfile         state;          /* saved registers         */
-  unsigned int  status;         /* exited? exit status?    */
-  thread        next;        
-  thread        prev;       
-  thread        sched_one;      /* Two more for            */
-  thread        sched_two;      /* schedulers to use       */
-  thread        exited;         /* and one for lwp_wait()  */
-} context;
 
 extern void swap_rfiles(rfile *old, rfile *new); // from magic.asm
 
@@ -91,7 +56,7 @@ static void yield_sys() {
 Terminate calling lwp, remove from active,
 put in exited list and yield 
 */
-void exit() {
+void kexit() {
     asm volatile ("int $0x81");
 }
 
@@ -121,8 +86,8 @@ void PROC_run() {
 }
 
 /* create a thread with function entry_point and add it to active 
-threads list */
-void PROC_create_kthread(kproc_t entry_point, void *arg) {
+threads list, returns the new thread */
+thread PROC_create_kthread(kproc_t entry_point, void *arg) {
     thread new_thread;
     uintptr_t * stack_top;
 
@@ -144,7 +109,7 @@ void PROC_create_kthread(kproc_t entry_point, void *arg) {
     /* Set Stack Pointer to Top of Stack */
     new_thread -> state.rsp = (unsigned long) stack_top;
     
-    return;
+    return new_thread;
 }
 
 /* 
@@ -153,7 +118,7 @@ calls lwp_exit() with its return value.
 */
 static void lwp_wrapper(kproc_t fun, void *arg) {
     fun(arg); 
-    exit();
+    kexit();
     return;
 }
 
@@ -180,4 +145,8 @@ static thread make_new_active_thread() {
     /* Add Thread to Scheduler */
     //sched_admit(new_thread);
     return new_thread;
+}
+
+thread get_curr_thread() {
+    return active_head;
 }
