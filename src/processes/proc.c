@@ -3,6 +3,7 @@
 #include "kmalloc.h"
 #include "asm.h"
 #include "syscall.h"
+#include "schedulers.h"
 
 
 extern void swap_rfiles(rfile *old, rfile *new); // from magic.asm
@@ -11,11 +12,22 @@ static thread make_new_active_thread(void);
 static void lwp_wrapper(kproc_t fun, void *arg);
 static void yield_sys();
 
-static thread active_head = 0;
+static scheduler sched = 0;
 
 /* must be called before using proc */
 void init_proc() {
     syscall_register_handler(SYS_YIELD, yield_sys);
+    register_sched(RoundRobin);
+}
+
+void register_sched(scheduler new_sched) {
+    if (sched != 0) {
+        printk("Not Implemented: cannot reregister scheduler\n");
+        // remove running procs and put them into new scheduler
+        asm volatile("hlt");
+    }
+    sched=new_sched;
+    sched->init();
 }
 
 void yield() {
@@ -24,27 +36,19 @@ void yield() {
 
 /* to yield*/
 static void yield_sys() {
-    thread next = 0;
-    thread prev = 0;
+    thread next = 0, prev = 0;
     /* Invalid Call to Yield, or Nothing to Schedule*/
-    if  (active_head == 0)
+    if ((prev = sched->active()) == 0)
     {
         printk("Yield Error: Current is Null\n");
         asm volatile("hlt");
     }
     /* No Next, Exit */
-    next = active_head->next;
-    if (next == 0)
-    {
-        printk("Yield Error: No Thread to Switch\n");
-        asm volatile("hlt");
-    }
-    /* If the thread is rescheduled, just return immediately */
-    if ( next == active_head) {
+    next = sched->next();
+    /* If the calling thread is the same as next, just return immediately */
+    if (next == prev) {
         return;
     }
-    prev = active_head;
-    active_head = next;
     
     /* Magic */
     swap_rfiles(&(prev->state), &(next->state));
@@ -60,23 +64,24 @@ void kexit() {
 }
 
 void sys_exit() {
-    kfree(active_head->stack);
-    // if something in scheduler, remove current from list
-    active_head->prev->next = active_head->next;
-    active_head->next->prev = active_head->prev;
-    active_head = active_head->next;
-
-    swap_rfiles(0, &(active_head->state));
+    thread prev = sched->active();
+    kfree(prev->stack);
+    sched->remove(prev);
+    kfree(prev);
+    swap_rfiles(0, &(sched->active()->state));
 }
 
 /* runs threads until all are exited */
 void PROC_run() {
     thread main_thread = make_new_active_thread();
-    active_head = main_thread;
     /* Set Stack to null to designate main thread */
     main_thread -> stack = 0;
+    if (sched->set_active(main_thread) != main_thread) {
+        printk("error: proc failed to set active thread to main\n");
+        asm volatile("hlt");
+    };
     // if other things in scheduler, yield()
-    while (active_head -> next != active_head) {
+    while (sched->size() > 1) {
         yield();
     }
     printk("done\n");
@@ -127,24 +132,12 @@ static thread make_new_active_thread() {
     thread new_thread;
     new_thread = kmalloc(sizeof(context));
     new_thread -> tid = (uint64_t) new_thread;
-    /* Maintain Doubly Linked List */
-    if ( active_head == 0 ) {
-        active_head = new_thread;
-        new_thread -> next = new_thread;
-        new_thread -> prev = new_thread;
-    } else {
-        // insert right before active_head
-        new_thread -> prev = active_head -> prev;
-        new_thread -> next = active_head;
-        active_head -> prev -> next = new_thread;
-        active_head -> prev = new_thread;
-    }
 
     /* Add Thread to Scheduler */
-    //sched_admit(new_thread);
+    sched->admit(new_thread);
     return new_thread;
 }
 
 thread get_curr_thread() {
-    return active_head;
+    return sched->active();
 }

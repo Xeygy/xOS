@@ -1,6 +1,7 @@
 #ifndef PROC_H
 #define PROC_H
 #include <stdint.h>
+
 typedef struct __attribute__ ((aligned(16))) __attribute__ ((packed))
 registers {
   unsigned long rax;            /* the sixteen architecturally-visible regs. */
@@ -36,11 +37,28 @@ typedef struct threadinfo_st {
   thread        exited;         /* and one for lwp_wait()  */
 } context;
 
+/* Tuple that describes a scheduler */
+typedef struct scheduler {
+  void   (*init)(void);            /* initialize any structures                        */
+  void   (*shutdown)(void);        /* tear down any structures                         */
+  void   (*admit)(thread fresh);   /* add a thread to the pool                         */
+  void   (*remove)(thread victim); /* remove a thread from the pool                    */
+  thread (*next)(void);            /* set active to next thread and return that thread */
+  thread (*active)(void);          /* current running thread                           */
+  int (*size)(void);               /* num threads in scheduler                         */
+  thread (*set_active)(thread);      /* set given thread to active thread, ret new active*/
+} *scheduler;
+
 /* 
 yield execution of current running
 proc, scheduler runs next proc 
 */
 void yield(void);
+
+/* 
+set the scheduler for the threading lib
+*/
+void register_sched(scheduler new_sched);
 
 /* 
 destroys a process and returns 

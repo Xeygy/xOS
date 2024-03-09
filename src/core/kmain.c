@@ -24,7 +24,7 @@ int kmain(uint64_t rbx) {
     // PROC_create_kthread(&test_threads, (void *) 6);
     // PROC_create_kthread(&test_threads, (void *) 8);
     // PROC_create_kthread(&test_threads, (void *) 7);
-    setup_snakes(0);
+    setup_snakes(1);
     PROC_run();
     while (1){
         asm volatile ("hlt");
