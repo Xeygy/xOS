@@ -7,7 +7,7 @@
 
 /******************************************/
 /* This code is from a simple linked-list */
-/* malloc I wrote in CPE 454.             */
+/* malloc I wrote in CPE 453.             */
 /******************************************/
 
 typedef struct header {
