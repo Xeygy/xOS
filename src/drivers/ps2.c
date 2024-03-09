@@ -2,6 +2,11 @@
 #include "print.h"
 #include "asm.h"
 #include "string.h"
+#include "proc.h"
+#include "interrupts.h"
+#include "kmalloc.h"
+
+#define KB_BUFF_SIZE 128
 
 #define PS2_DATA  0x60
 #define PS2_CMD 0x64
@@ -53,6 +58,9 @@ static char scodes2_up[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '~', 0,
 
 /* 0 if scan code is depressed */
 static char scodes_down[sizeof(scodes2)];
+static thread_q *kb_block_q;
+static char kb_buff[KB_BUFF_SIZE]; // circular queue
+static int kb_read = 0, kb_write = 0;
 
 /* 
     sets up ps2 controller and keyboard on port 1
@@ -239,3 +247,38 @@ static int init_controller() {
     return 0;
 }
 
+/* 
+	handles interrupts from the keyboard device
+*/
+void keyboard_handler() {
+	char kb_input;
+	kb_input = ps2_read();
+    // add to buffer if readable (not 0) and buff not full
+    if (kb_input && 
+        (kb_write+1 != kb_read || (kb_write==KB_BUFF_SIZE-1 && kb_read==0))) {
+        kb_buff[kb_write] = kb_input;
+        kb_write = (kb_write + 1) % KB_BUFF_SIZE;
+    }
+    // wake up one blocked process
+    if (kb_read != kb_write) 
+	    PROC_unblock_head(kb_block_q);
+}
+/* 
+blocks calling thread and returns when kb 
+has a char
+*/
+char getc() {
+    char res;
+    disable_interrupts();
+    while (kb_write == kb_read) {
+        if (kb_block_q == 0) {
+            kb_block_q = kmalloc(sizeof(thread_q));
+        }
+        PROC_block_on(kb_block_q, 1);
+        disable_interrupts();
+    }
+    res = kb_buff[kb_read];
+    kb_read = (kb_read + 1) % KB_BUFF_SIZE; 
+    enable_interrupts();
+    return res;
+}

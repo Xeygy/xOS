@@ -43,11 +43,27 @@ typedef struct scheduler {
   void   (*shutdown)(void);        /* tear down any structures                         */
   void   (*admit)(thread fresh);   /* add a thread to the pool                         */
   void   (*remove)(thread victim); /* remove a thread from the pool                    */
+  void   (*unlink)(thread victim); /* keep thread as active, no reschedule after yield */
   thread (*next)(void);            /* set active to next thread and return that thread */
   thread (*active)(void);          /* current running thread                           */
   int (*size)(void);               /* num threads in scheduler                         */
-  thread (*set_active)(thread);      /* set given thread to active thread, ret new active*/
+  thread (*set_active)(thread);    /* set given thread to active thread, ret new active*/
 } *scheduler;
+
+typedef struct thread_node {
+  thread t;
+  struct thread_node *next;
+  struct thread_node *prev;
+} thread_node;
+
+typedef struct thread_q {
+  thread_node *head;
+  thread_node *tail;
+} thread_q;
+
+int PROC_unblock_head(thread_q *q);
+void PROC_unblock_all(thread_q *q);
+void PROC_block_on(thread_q *q, int enable_ints);
 
 /* 
 yield execution of current running

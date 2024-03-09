@@ -8,6 +8,7 @@ void rrInit();
 void rrShutdown();
 void rrAdmit(thread admit);
 void rrRemove(thread victim);
+void rrUnlink(thread victim);
 thread rrNext();
 thread rrActive();
 int rrSize();
@@ -18,6 +19,7 @@ struct scheduler rrSched = {
     rrShutdown,
     rrAdmit,
     rrRemove,
+    rrUnlink,
     rrNext,
     rrActive,
     rrSize,
@@ -78,6 +80,37 @@ void rrRemove(thread victim) {
     }
     return;
 }
+
+void rrUnlink(thread victim) {
+    thread temp;
+    int i;
+    if (victim == 0) {
+        printk("Unlink Failed: NULL Pointer\n");
+        asm volatile("hlt");
+    } 
+    if (size == 0) {
+        return;
+    }
+    if (size == 1) {
+        // unlinked, so failure if rrNext is called
+        victim->next = 0;
+        victim->prev = 0;
+        size--;
+        return;
+    }
+    temp = active_head;
+    for (i = 0; i < size; i++) {
+        if (temp->tid == victim->tid) {
+            temp->next->prev = temp->prev;
+            temp->prev->next = temp->next;
+            size--;
+            return;
+        }
+        temp = temp->next;
+    }
+    return;
+}
+
 thread rrNext() {
     if (active_head == 0 || active_head->next == 0) {
         printk("Sched Error: No Thread to Switch\n");

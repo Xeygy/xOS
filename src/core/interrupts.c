@@ -125,7 +125,6 @@ static void PIC_remap(int offset1, int offset2);
 static void set_PIC_mask();
 static void firstTimeSetup();
 void generic_handler(uint64_t isr_num, uint64_t error_code);
-static void keyboard_handler();
 static void setupIdtEntry(idt_entry_t *entry, void * handler, uint16_t type, uint8_t ist);
 static void setupAndLoadTSS();
 
@@ -291,16 +290,6 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 		// is a hardware interrupt, notify PIC that it's handled
 		PIC_sendEOI(isr_num - 0x20);
 	}
-}
-
-/* 
-	handles interrupts from the keyboard device
-*/
-static void keyboard_handler() {
-	char kb_input;
-	kb_input = ps2_read();
-	if (kb_input)
-		printk("%c", kb_input);
 }
 
 /*

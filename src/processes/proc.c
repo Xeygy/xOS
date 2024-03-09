@@ -4,6 +4,7 @@
 #include "asm.h"
 #include "syscall.h"
 #include "schedulers.h"
+#include "interrupts.h"
 
 
 extern void swap_rfiles(rfile *old, rfile *new); // from magic.asm
@@ -17,7 +18,76 @@ static scheduler sched = 0;
 /* must be called before using proc */
 void init_proc() {
     syscall_register_handler(SYS_YIELD, yield_sys);
-    register_sched(RunActiveToCompletion);
+    register_sched(RoundRobin);
+}
+
+static void push_q(thread_q *q, thread t) {
+    thread_node *tn = kmalloc(sizeof(thread_node));
+    if (q == 0) {
+        printk("can't add to null q");
+        return;
+    }
+    tn->t = t;
+    tn->next = 0;
+    tn->prev = 0;
+    if (q->head == 0) {
+        q->head = tn;
+        q->tail = tn;
+    } else {
+        tn->next = q->head;
+        q->head->prev = tn;
+        q->head = tn;
+    }
+}
+
+static thread pop_q(thread_q *q) {
+    thread ans = 0;
+    thread_node *ans_tn=0;
+    if (q == 0) {
+        printk("can't remove from null q");
+        return 0;
+    }
+    if (q->tail == 0) {
+        printk("can't remove from empty q");
+        return 0;
+    }
+    if (q->tail == q->head) {
+        q->head = 0;
+    }
+    ans = q->tail->t;
+    ans_tn = q->tail;
+    q->tail = q->tail->prev;
+    kfree(ans_tn);
+    return ans;
+}
+
+/* move thread from head of q to scheduler
+returns 0 on success, error code on failure */
+int PROC_unblock_head(thread_q *q)  {
+    if (q == 0 || q->head == 0) {
+        return 1;
+    }
+    sched->admit(pop_q(q));
+    return 0;
+}
+
+/* move all threads in q to scheduler*/
+void PROC_unblock_all(thread_q *q) {
+    while (q->head != 0) {
+        sched->admit(pop_q(q));
+    }
+}
+/* remove curr thread from scheduler and add to block thread */
+void PROC_block_on(thread_q *q, int enable_ints) {
+    thread curr;
+    if (!q)
+        return;
+    curr = sched->active();
+    sched->unlink(curr);
+    push_q(q, curr);
+    if (enable_ints)
+        enable_interrupts();    
+    yield(); 
 }
 
 void register_sched(scheduler new_sched) {
