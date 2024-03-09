@@ -17,7 +17,7 @@ static scheduler sched = 0;
 /* must be called before using proc */
 void init_proc() {
     syscall_register_handler(SYS_YIELD, yield_sys);
-    register_sched(RoundRobin);
+    register_sched(RunActiveToCompletion);
 }
 
 void register_sched(scheduler new_sched) {

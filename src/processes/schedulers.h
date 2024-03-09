@@ -4,5 +4,6 @@
 #include "proc.h"
 
 extern scheduler RoundRobin;
+extern scheduler RunActiveToCompletion;
 
 #endif
