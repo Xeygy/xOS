@@ -5,6 +5,8 @@
 #include "proc.h"
 #include "snakes.h"
 #include "syscall.h"
+#include "block.h"
+#include "asm.h"
 #include <stdint.h>
 
 void test_threads(void* arg);
@@ -15,19 +17,21 @@ int kmain(uint64_t rbx) {
     // int gdb = 1;
     // while(gdb);
     void *mbr_ptr = (void*) (rbx & 0xFFFFFFFF);
+    firstTimeSetup();
     MMU_init(mbr_ptr);
-    disable_interrupts();
+    cli();
     init_ps2();
-    enable_interrupts();
+    sti();
     init_proc();
-
+    // ata_block_init();
     // syscall(SYS_TEST);
     // PROC_create_kthread(&test_threads, (void *) 6);
-    // PROC_create_kthread(&test_threads, (void *) 8);
     PROC_create_kthread(&keyboard_io, (void *) 0);
-    setup_snakes(0);
-    PROC_run();
+    //PROC_create_kthread(&test_threads, (void *) 8);
+    setup_snakes(1);
+    
     while (1) {
+        PROC_run();
         asm volatile ("hlt");
     }
 }
@@ -35,6 +39,7 @@ int kmain(uint64_t rbx) {
 void test_threads(void* arg) {
     int i = 0;
     for (i = 1; i <= (uint64_t) arg; i++) {
+        p_int();
         printk("%d) I am thread %p\n", i, arg);
         yield();    
     }

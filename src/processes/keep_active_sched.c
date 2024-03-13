@@ -121,6 +121,7 @@ thread kaNext() {
         // go to next if active is main to let threads run
         // or if active is unlinked
         active_head = active_head->next;
+        active_unlinked = 0;
     }
     return active_head;
 }

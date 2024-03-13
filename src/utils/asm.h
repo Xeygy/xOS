@@ -2,6 +2,9 @@
 #define ASM_H
 
 #include <stdint.h>
+/******************************/
+/* cleaner inline asm utility */
+/******************************/
 
 /*
     sends 8 bits to an i/o port
@@ -18,6 +21,17 @@ static inline void outb(uint16_t port, uint8_t val) {
 static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     asm volatile ( "inb %1, %0"
+                : "=a"(ret)
+                : "Nd"(port) );
+    return ret; 
+}
+
+/*
+    recieves 16 bits from a i/o port
+*/
+static inline uint16_t inw(uint16_t port) {
+    uint16_t ret;
+    asm volatile ( "inw %1, %0"
                 : "=a"(ret)
                 : "Nd"(port) );
     return ret; 

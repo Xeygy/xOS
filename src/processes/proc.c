@@ -5,6 +5,7 @@
 #include "syscall.h"
 #include "schedulers.h"
 #include "interrupts.h"
+#include "string.h"
 
 
 extern void swap_rfiles(rfile *old, rfile *new); // from magic.asm
@@ -14,11 +15,13 @@ static void lwp_wrapper(kproc_t fun, void *arg);
 static void yield_sys();
 
 static scheduler sched = 0;
+thread main_thread = 0;
 
 /* must be called before using proc */
 void init_proc() {
     syscall_register_handler(SYS_YIELD, yield_sys);
-    register_sched(RoundRobin);
+    //RoundRobin
+    register_sched(RunActiveToCompletion);
 }
 
 static void push_q(thread_q *q, thread t) {
@@ -67,6 +70,7 @@ int PROC_unblock_head(thread_q *q)  {
     if (q == 0 || q->head == 0) {
         return 1;
     }
+    
     sched->admit(pop_q(q));
     return 0;
 }
@@ -80,13 +84,15 @@ void PROC_unblock_all(thread_q *q) {
 /* remove curr thread from scheduler and add to block thread */
 void PROC_block_on(thread_q *q, int enable_ints) {
     thread curr;
-    if (!q)
+    if (!q) {
+        printk("no q\n");
         return;
+    }
     curr = sched->active();
     sched->unlink(curr);
     push_q(q, curr);
     if (enable_ints)
-        enable_interrupts();    
+        sti();    
     yield(); 
 }
 
@@ -143,7 +149,8 @@ void sys_exit() {
 
 /* runs threads until all are exited */
 void PROC_run() {
-    thread main_thread = make_new_active_thread();
+    if (main_thread == 0)
+        main_thread = make_new_active_thread();
     /* Set Stack to null to designate main thread */
     main_thread -> stack = 0;
     if (sched->set_active(main_thread) != main_thread) {
@@ -154,7 +161,6 @@ void PROC_run() {
     while (sched->size() > 1) {
         yield();
     }
-    printk("done\n");
     return;
 }
 
@@ -190,7 +196,7 @@ Call the given lwpfunction with the given argument, then
 calls lwp_exit() with its return value.
 */
 static void lwp_wrapper(kproc_t fun, void *arg) {
-    fun(arg); 
+    fun(arg);
     kexit();
     return;
 }
@@ -201,6 +207,8 @@ mallocs a new thread and adds it to the active threads list
 static thread make_new_active_thread() {
     thread new_thread;
     new_thread = kmalloc(sizeof(context));
+    memset(&new_thread->state, 0, sizeof(rfile));
+    new_thread->state.rflags = 1 << 9; // enable interrupts
     new_thread -> tid = (uint64_t) new_thread;
 
     /* Add Thread to Scheduler */

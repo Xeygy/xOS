@@ -269,16 +269,16 @@ has a char
 */
 char getc() {
     char res;
-    disable_interrupts();
+    cli();
     while (kb_write == kb_read) {
         if (kb_block_q == 0) {
             kb_block_q = kmalloc(sizeof(thread_q));
         }
         PROC_block_on(kb_block_q, 1);
-        disable_interrupts();
+        cli();
     }
     res = kb_buff[kb_read];
     kb_read = (kb_read + 1) % KB_BUFF_SIZE; 
-    enable_interrupts();
+    sti();
     return res;
 }

@@ -32,6 +32,7 @@
  */
 
 #include "snakes.h"
+#include "interrupts.h"
 #include "kmalloc.h"
 #include "vga.h"
 #include "asm.h"

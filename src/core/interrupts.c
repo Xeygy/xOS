@@ -118,42 +118,39 @@ static uint64_t ist3[STACK_SIZE]; // 2kb
 static uint64_t ist4[STACK_SIZE]; // 2kb
 static idtr_t idtr; 
 static tss_t tss;
-static int enabled, setup;
+static int setup;
 
 static void PIC_sendEOI(uint8_t irq);
 static void PIC_remap(int offset1, int offset2);
 static void set_PIC_mask();
-static void firstTimeSetup();
 void generic_handler(uint64_t isr_num, uint64_t error_code);
 static void setupIdtEntry(idt_entry_t *entry, void * handler, uint16_t type, uint8_t ist);
 static void setupAndLoadTSS();
-
-int enable_interrupts() {
-	if (!setup) 
-		firstTimeSetup();
-	sti();
-	enabled = 1;
-    return 0;
-}
-
-int disable_interrupts() {
-	cli();
-	enabled = 0;
-	return 0;
-}
 
 /*
 	returns 1 if interrupts are currently enabled,
 	0 if not
 */
 int interrupts_enabled() {
-	return enabled;
+	unsigned long flags;
+    int interrupts_enabled;
+
+    // Inline assembly to get the EFLAGS register
+    asm volatile("pushf\n\t"
+                 "pop %0"
+                 : "=g"(flags) /* output operand */
+                 :
+                 : "memory");   /* clobbered register */
+
+    // Check the IF (Interrupt Flag) bit (bit 9) in EFLAGS
+    interrupts_enabled = (flags & (1 << 9)) ? 1 : 0;
+	return interrupts_enabled;
 }
  
 /* 
 	initializes the PIC and idt on startup
 */
-static void firstTimeSetup() {
+void firstTimeSetup() {
 	int i, ist_idx;
 	PIC_remap(0x20, 0x28);
 	set_PIC_mask();
@@ -282,7 +279,7 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 			break;
 		default:
 			printk("Interrupt 0x%lx not handled, stopping..., error code %ld\n", isr_num, error_code & 0xFF);
-			disable_interrupts();
+			cli();
 			asm volatile ("hlt");
 	}
 
@@ -301,4 +298,25 @@ static void PIC_sendEOI(uint8_t irq)
 		outb(PIC2_COMMAND,PIC_EOI);
  
 	outb(PIC1_COMMAND,PIC_EOI);
+}
+
+// debug to print if interrupts are enabled
+void p_int() {
+	unsigned long flags;
+    int interrupts_enabled;
+
+    // Inline assembly to get the EFLAGS register
+    asm volatile("pushf\n\t"
+                 "pop %0"
+                 : "=g"(flags) /* output operand */
+                 :
+                 : "memory");   /* clobbered register */
+
+    // Check the IF (Interrupt Flag) bit (bit 9) in EFLAGS
+    interrupts_enabled = (flags & (1 << 9)) ? 1 : 0;
+
+    if (interrupts_enabled)
+        printk("Interrupts are enabled.\n");
+    else
+        printk("Interrupts are disabled.\n");
 }

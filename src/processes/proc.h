@@ -20,6 +20,7 @@ registers {
   unsigned long r13;
   unsigned long r14;
   unsigned long r15;
+  unsigned long rflags;
   //struct fxsave fxsave;   /* space to save floating point state */
 } rfile;
 

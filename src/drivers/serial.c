@@ -28,7 +28,7 @@ int SER_write(const char *buff, int len) {
     int offset = 0;
     int reenable_int = 0;
     if (interrupts_enabled()) {
-        disable_interrupts();
+        cli();
         reenable_int = 1;
     }
     if (SER_init()) {
@@ -40,7 +40,7 @@ int SER_write(const char *buff, int len) {
         !add_to_state(*(buff + offset++)));
     hw_write();
     if (reenable_int) {
-        enable_interrupts();
+        sti();
     }
     return 0;
 }

@@ -1,4 +1,4 @@
-;; adapted from pnico's cpe454
+;; adapted from pnico's cpe453
 
 global swap_rfiles
 swap_rfiles:
@@ -14,10 +14,10 @@ swap_rfiles:
 	cmp	rdi, 0
 	je load
 
-	mov rdi, rax	;; store rax into old->rax so we can use it
+	mov [rdi], rax	;; store rax into old->rax so we can use it
 
 	;; Now store the Floating Point State
-	lea rax, [rdi+128]	;; get the address
+	;; lea rax, [rdi+128]	;; get the address
 	;;fxsave rax
 
 	mov [rdi+8], rbx	;; now the rest of the registers
@@ -36,16 +36,19 @@ swap_rfiles:
 	mov [rdi+112], r14
 	mov [rdi+120], r15
 
+	pushfq
+	pop QWORD [rdi+128]
+
 	;; load the new one (if new != NULL)
 load:	cmp rsi, 0
 	je done
 
 	;; First restore the Floating Point State
-	lea rax, [rsi+128]	;; get the address
+	;;lea rax, [rsi+128]	;; get the address
 	;;fxrstor (rax)
 	
-	mov    rax, rsi	;; retreive rax from new->rax
-	mov   rbx, [rsi+8]	;; etc.
+	mov  rax, [rsi]	;; retreive rax from new->rax
+	mov  rbx, [rsi+8]	;; etc.
 	mov  rcx, [rsi+16]
 	mov  rdx, [rsi+24]
 	mov  rdi, [rsi+40]
@@ -59,6 +62,9 @@ load:	cmp rsi, 0
 	mov r13, [rsi+104]
 	mov r14, [rsi+112]
 	mov r15, [rsi+120]
+	push QWORD [rsi+128]
+	popfq
+
 	mov  rsi, [rsi+32]	;; must do rsi since, last it's our pointer
 
 done:	leave
