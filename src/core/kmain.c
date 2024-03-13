@@ -17,18 +17,19 @@ int kmain(uint64_t rbx) {
     // int gdb = 1;
     // while(gdb);
     void *mbr_ptr = (void*) (rbx & 0xFFFFFFFF);
+    set_debug_verbosity(DPRINT_DETAILED);
     firstTimeSetup();
     MMU_init(mbr_ptr);
     cli();
     init_ps2();
     sti();
     init_proc();
-    // ata_block_init();
+    ata_block_init(0x1F0, 0x3F6);
     // syscall(SYS_TEST);
     // PROC_create_kthread(&test_threads, (void *) 6);
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
-    setup_snakes(1);
+    //setup_snakes(1);
     
     while (1) {
         PROC_run();
@@ -41,6 +42,7 @@ void test_threads(void* arg) {
     for (i = 1; i <= (uint64_t) arg; i++) {
         p_int();
         printk("%d) I am thread %p\n", i, arg);
+        dprintk(DPRINT_NORMAL, "you see me");
         yield();    
     }
 }

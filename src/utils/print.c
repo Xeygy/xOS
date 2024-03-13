@@ -6,10 +6,13 @@
 #define MAXBUF (sizeof(long long int) * 8) // long enough even for binary
 static char digits[] = "0123456789abcdef";
 
+static dprint_verbosity_t debug_verbosity = DPRINT_NORMAL;
+
 void print_ullong(unsigned long long int i, int base);
 void print_llong(long long int i, int base);
 static void VGA_and_SER_display_char(char c);
 static void VGA_and_SER_display_string(char* str);
+static int vprintk(const char *fmt, va_list args);
 
 /*
     printf but for the kernel. supports
@@ -26,10 +29,29 @@ static void VGA_and_SER_display_string(char* str);
         %q[dux] - converts to a long long
 */
 int printk(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vprintk(fmt, args);
+    va_end(args);
+    return 0;
+}
+
+/*
+        %% - a percent sign
+        %d - a signed int
+        %u - an unsigned int
+        %x - lowercase hex uint
+        %c - unsigned char
+        %p - pointer in hex prefixed with 0x
+        %s - string (char ptr w/terminator)
+
+        %h[dux] - converts to a short 
+        %l[dux] - converts to a long
+        %q[dux] - converts to a long long
+*/
+static int vprintk(const char *fmt, va_list args) {
     int i = 0;
     int is_h, is_l, is_q;
-    va_list args;
-    va_start(args, fmt); 
 
     while (fmt[i] != '\0') {
         is_h = 0, is_l = 0, is_q = 0;
@@ -114,7 +136,6 @@ int printk(const char *fmt, ...) {
             }
         i++;
     }
-    va_end(args);
     return 0;
 }
 
@@ -169,4 +190,22 @@ static void VGA_and_SER_display_string(char* str) {
         VGA_and_SER_display_char(curr);
         curr = *(++str);
     }
+}
+
+void set_debug_verbosity(dprint_verbosity_t verbosity) {
+    debug_verbosity = verbosity;
+}
+
+/* 
+debug printing, will only print at given 
+verbosity level or higher
+*/
+int dprintk(dprint_verbosity_t verbosity, const char *fmt, ...) {
+    va_list args;
+    if (debug_verbosity >= verbosity) {
+        va_start(args, fmt);
+        vprintk(fmt, args);
+        va_end(args);
+    }
+    return 0;
 }

@@ -326,11 +326,12 @@ void shrinkH(Header *h, size_t needed) {
 
 void kMallocPrintHeap() {
     Header *p = heap;
+    dprintk(DPRINT_DETAILED, "-------- malloc heap\n");
     do {
-        printk("pointer %p, (%p, %p), inUse %d, size %d \n", 
+        dprintk(DPRINT_DETAILED, "pointer %p, (%p, %p), inUse %d, size %d \n", 
         (void *)p, (void *)p->prev,  
         (void *)p->next, p->inUse, (int)p->size);
         p = p->next;
     } while (p != heap);
-    printk("-------- \n");
+    dprintk(DPRINT_DETAILED, "-------- \n");
 }

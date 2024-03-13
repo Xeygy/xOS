@@ -344,7 +344,7 @@ static int init_pf_alloc(void *mb2_head) {
     }
     while (!end_mb2 && curr_ptr < mb2_head + header->totalSizeBytes) {
         curr_tag_hdr = curr_ptr;
-        printk("tag type: %u, size: %u\n", curr_tag_hdr->tagType, curr_tag_hdr->totalSizeBytes);
+        dprintk(DPRINT_DETAILED, "tag type: %u, size: %u\n", curr_tag_hdr->tagType, curr_tag_hdr->totalSizeBytes);
         switch (curr_tag_hdr->tagType)
         {
         case TYPE_MMAP:
@@ -354,7 +354,7 @@ static int init_pf_alloc(void *mb2_head) {
             elf_syms = curr_ptr;
             break;
         case TYPE_BOOTLDR_NAME:
-            printk("Name: %s\n", (char *) (curr_ptr + 8));
+            dprintk(DPRINT_DETAILED, "Name: %s\n", (char *) (curr_ptr + 8));
             break;
         case TYPE_END_TAG_LIST:
             if (curr_tag_hdr->totalSizeBytes == 8){
@@ -397,7 +397,7 @@ static void fill_mem_tbl(void* mmap_tag) {
 
     while ((void*) curr_entry < mmap_tag + header->totalSizeBytes) {
         if (curr_entry->type == 1) {
-            printk("avail start %lx, end %lx\n", curr_entry->start_addr, curr_entry->start_addr + curr_entry->byte_len);
+            dprintk(DPRINT_DETAILED, "avail start %lx, end %lx\n", curr_entry->start_addr, curr_entry->start_addr + curr_entry->byte_len);
             mem_tbl[mem_tbl_next_idx].addr = curr_entry->start_addr;
             mem_tbl[mem_tbl_next_idx].byteSize = curr_entry->byte_len;
             mem_tbl_next_idx++;
@@ -415,14 +415,14 @@ static void reserve_elf_syms(void* syms_tag) {
     while ((void *) curr_entry < syms_tag + header->totalSizeBytes) {
         // relies on sequential chunk order
         if (curr_entry->memAddr > curr_chunk_end + PF_SIZE_BYTES) { // we will just connect chunks less than a page frame apart
-            printk("mem start %lx, end %lx\n", curr_chunk_start, curr_chunk_end);
+            dprintk(DPRINT_DETAILED, "mem start %lx, end %lx\n", curr_chunk_start, curr_chunk_end);
             reserve_mem_tbl(curr_chunk_start, curr_chunk_end);
             curr_chunk_start = curr_entry->memAddr;
         } 
         curr_chunk_end = curr_entry->memAddr + curr_entry->segmentByteSize;
         curr_entry = (void *) curr_entry + header->entryByteSize;
     }
-    printk("last mem start %lx, end %lx\n", curr_chunk_start, curr_chunk_end);
+    dprintk(DPRINT_DETAILED, "last mem start %lx, end %lx\n", curr_chunk_start, curr_chunk_end);
     reserve_mem_tbl(curr_chunk_start, curr_chunk_end);
 }
 

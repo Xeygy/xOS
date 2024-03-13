@@ -46,19 +46,19 @@ ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base) {
         while (!(in_val & 0x09)) {
             in_val = inb(PRIM_IO+7);
         }
-        printk("PATA\n");
+        dprintk(DPRINT_DETAILED, "PATA\n");
         prim_dev = ATA_PATA;
     } else if (mid == 0x14 && hi == 0xEB) {
-        printk("PATAPI\n");
+        dprintk(DPRINT_DETAILED, "PATAPI\n");
         prim_dev = ATA_PATAPI;
     } else if (mid == 0x69 && hi == 0x96) {
-        printk("SATAPI\n");
+        dprintk(DPRINT_DETAILED, "SATAPI\n");
         prim_dev = ATA_SATAPI;
     } else if (mid == 0x3c && hi == 0xc3) {
-        printk("SATA\n");
+        dprintk(DPRINT_DETAILED, "SATA\n");
         prim_dev = ATA_SATA;
     } else {
-        printk("Unknown device type.\n");
+        dprintk(DPRINT_DETAILED, "Unknown device type.\n");
         return ATA_UNKNOWN;
     }
 
@@ -67,10 +67,10 @@ ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base) {
         in_val = inw(PRIM_IO);
         // uint16_t 83: Bit 10 is set if the drive supports LBA48 mode.
         if (i == 83 && (in_val & (1 << 10))) {
-            printk("Supports LBA48\n");
+            dprintk(DPRINT_DETAILED, "Supports LBA48\n");
             return prim_dev;
         } else if (i == 83){
-            printk("%x Doesn't support LBA48\n", in_val);
+            dprintk(DPRINT_DETAILED, "%x Doesn't support LBA48\n", in_val);
         }
     } 
     return ATA_UNKNOWN;

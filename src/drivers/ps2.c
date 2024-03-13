@@ -44,7 +44,7 @@ static char scodes2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '`', 0,
                         0, 'n', 'b', 'h', 'g', 'y', '6', 0 ,0, 0, 'm', 'j', 'u', '7', '8', 0,
                         0, ',', 'k', 'i', 'o', '0', '9', 0, 0, '.', '/', 'l', ';', 'p', '-', 0,
                         0, 0, '\'', 0, '[', '=', 0, 0, 0, 0, '\n', ']', 0, '\\', 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, '\b', 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
                         '0', '.', '2', '5', '6', '8', 0, 0, 0, '+', '3', '-', '*', '9', 0, 0};
 /* uppercase values */
 static char scodes2_up[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '~', 0,
@@ -53,7 +53,7 @@ static char scodes2_up[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '~', 0,
                         0, 'N', 'B', 'H', 'G', 'Y', '^', 0 ,0, 0, 'M', 'J', 'U', '&', '*', 0,
                         0, '<', 'K', 'I', 'O', ')', '(', 0, 0, '>', '?', 'L', ':', 'P', '_', 0,
                         0, 0, '"', 0, '{', '+', 0, 0, 0, 0, '\n', '}', 0, '|', 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, '\b', 0, 0, /*keypad*/ '1', 0, '4', '7', 0, 0, 0,
                         '0', '.', '2', '5', '6', '8', 0, 0, 0, '+', '3', '-', '*', '9', 0, 0};
 
 /* 0 if scan code is depressed */
@@ -73,7 +73,7 @@ int init_ps2() {
     if (!init_ctlr_success && (error = init_controller()))
         return error;
     init_ctlr_success = 1;
-    printk("scodes %lu\n", sizeof(scodes2));
+
     if ((error = init_keyb()))
         return error;
     ready_to_poll = 1;
@@ -142,7 +142,7 @@ static int init_keyb() {
         printk("PS/2 port 1 device reset failed, expected 0xFA, got %hx\n", test_res);
         return 1;
     } else {
-        printk("PS/2 port 1 device reset success! got %hx\n", test_res);
+        dprintk(DPRINT_DETAILED, "PS/2 port 1 device reset success! got %hx\n", test_res);
     }  
 
     // set scancode to 2 (default)
@@ -164,7 +164,7 @@ static int init_keyb() {
         printk("failed to set scancode 2, expected 0x02, got %hx\n", test_res);
         return 1;
     } else {
-        printk("set scancode 2 success! got %hx\n", test_res);
+        dprintk(DPRINT_DETAILED, "set scancode 2 success! got %hx\n", test_res);
     }  
 
     // enable interrupts on device 1
@@ -219,7 +219,7 @@ static int init_controller() {
         printk("PS/2 self test failed, expected 0x55, got %hx\n", test_res);
         return 1;
     } else {
-        printk("PS/2 self test success! got %hx\n", test_res);
+        dprintk(DPRINT_DETAILED, "PS/2 self test success! got %hx\n", test_res);
     }
 
     // perform interface tests
@@ -231,7 +231,7 @@ static int init_controller() {
         printk("PS/2 port 1 test failed, expected 0x00, got %hx\n", test_res);
         return 1;
     } else {
-        printk("PS/2 port 1 test success! got %hx\n", test_res);
+        dprintk(DPRINT_DETAILED, "PS/2 port 1 test success! got %hx\n", test_res);
     } 
     // port 2
     if (is_dual_channel) {
@@ -241,7 +241,7 @@ static int init_controller() {
         if (test_res != 0x00) {
             printk("PS/2 port 2 test failed, expected 0x00, got %hx\n", test_res);
         } else {
-            printk("PS/2 port 2 test success! got %hx\n", test_res);
+            dprintk(DPRINT_DETAILED, "PS/2 port 2 test success! got %hx\n", test_res);
         } 
     }
     return 0;

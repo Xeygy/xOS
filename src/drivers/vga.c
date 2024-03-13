@@ -53,7 +53,10 @@ void VGA_display_char(char c) {
     }
     else if (c == '\r')
         cursor = LINE(cursor);
-    else {
+    else if (c == '\b') {
+        if (cursor > 0)
+            cursor--;
+    } else {
         vgaBuff[cursor] = (color << 8) | c;
         if ( (cursor % width) < (width - 1))
             cursor++; 
