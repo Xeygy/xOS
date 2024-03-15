@@ -9,7 +9,7 @@ grub_cfg := src/arch/$(arch)/grub.cfg
 assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
-
+# dd if=os-x86_64.img of=test bs=512 count=1
 src_dirs := src/core src/drivers src/games src/memory src/processes src/utils
 include_flags := $(foreach dir,$(src_dirs),-iquote$(dir))
 c_source_files := $(foreach dir,$(src_dirs),$(wildcard $(dir)/*.c))

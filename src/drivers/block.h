@@ -31,8 +31,11 @@ typedef struct ATABlockDev {
    struct ATARequest *req_head, *req_tail;
 } ATABlockDev;
 
+// register block device with driver
+int BLK_register_dev(struct BlockDev *dev);
 
+void ata_irq();
 ATABlockDev *ata_probe(uint16_t base, uint16_t master,
           uint8_t slave, const char *name, uint8_t irq);
-ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base);
+ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base, uint64_t *lba_48_sector_ct);
 #endif

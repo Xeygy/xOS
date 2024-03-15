@@ -258,10 +258,10 @@ void keyboard_handler() {
         (kb_write+1 != kb_read || (kb_write==KB_BUFF_SIZE-1 && kb_read==0))) {
         kb_buff[kb_write] = kb_input;
         kb_write = (kb_write + 1) % KB_BUFF_SIZE;
+        // wake up one blocked process
+        if (kb_read != kb_write) 
+            PROC_unblock_head(kb_block_q);
     }
-    // wake up one blocked process
-    if (kb_read != kb_write) 
-	    PROC_unblock_head(kb_block_q);
 }
 /* 
 blocks calling thread and returns when kb 
@@ -271,8 +271,9 @@ char getc() {
     char res;
     cli();
     while (kb_write == kb_read) {
-        if (kb_block_q == 0) {
+        if (kb_block_q == NULL) {
             kb_block_q = kmalloc(sizeof(thread_q));
+            memset(kb_block_q, 0, sizeof(thread_q));
         }
         PROC_block_on(kb_block_q, 1);
         cli();

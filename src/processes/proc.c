@@ -21,13 +21,21 @@ thread main_thread = 0;
 void init_proc() {
     syscall_register_handler(SYS_YIELD, yield_sys);
     //RoundRobin
-    register_sched(RunActiveToCompletion);
+    register_sched(RoundRobin);
 }
 
 static void push_q(thread_q *q, thread t) {
     thread_node *tn = kmalloc(sizeof(thread_node));
+    int defer_enable = 0;
+	if (interrupts_enabled()) {
+		defer_enable = 1;
+		cli();
+	}
+
     if (q == 0) {
         printk("can't add to null q");
+        if (defer_enable)
+            sti();
         return;
     }
     tn->t = t;
@@ -41,17 +49,30 @@ static void push_q(thread_q *q, thread t) {
         q->head->prev = tn;
         q->head = tn;
     }
+
+    if (defer_enable)
+        sti();
 }
 
 static thread pop_q(thread_q *q) {
     thread ans = 0;
     thread_node *ans_tn=0;
+    int defer_enable = 0;
+	if (interrupts_enabled()) {
+		defer_enable = 1;
+		cli();
+	}
+
     if (q == 0) {
         printk("can't remove from null q");
+        if (defer_enable)
+            sti();
         return 0;
     }
     if (q->tail == 0) {
         printk("can't remove from empty q");
+        if (defer_enable)
+            sti();
         return 0;
     }
     if (q->tail == q->head) {
@@ -61,24 +82,29 @@ static thread pop_q(thread_q *q) {
     ans_tn = q->tail;
     q->tail = q->tail->prev;
     kfree(ans_tn);
+
+    if (defer_enable)
+        sti();
     return ans;
 }
 
 /* move thread from head of q to scheduler
 returns 0 on success, error code on failure */
 int PROC_unblock_head(thread_q *q)  {
-    if (q == 0 || q->head == 0) {
+    thread next;
+    if (q == 0 || (next = pop_q(q)) == NULL) {
         return 1;
     }
     
-    sched->admit(pop_q(q));
+    sched->admit(next);
     return 0;
 }
 
 /* move all threads in q to scheduler*/
 void PROC_unblock_all(thread_q *q) {
-    while (q->head != 0) {
-        sched->admit(pop_q(q));
+    thread next;
+    while ((next = pop_q(q))!= NULL) {
+        sched->admit(next);
     }
 }
 /* remove curr thread from scheduler and add to block thread */

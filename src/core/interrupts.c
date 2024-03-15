@@ -5,6 +5,7 @@
 #include "string.h"
 #include "proc.h"
 #include "serial.h"
+#include "block.h"
 #include "page_alloc.h"
 
 extern void* syscall_isr; // from syscall.asm
@@ -24,6 +25,13 @@ extern uint64_t gdt64_tss_offset[];  // from boot.asm
 #define PIC2_COMMAND	PIC2
 #define PIC2_DATA	(PIC2+1) 
 #define PIC_EOI		0x20		/* End-of-interrupt command code */
+
+#define PIC1_KB_MASK (1 << 1)
+#define PIC1_ENABLE_PIC2_MASK (1 << 2)
+#define PIC1_SER1_MASK (1 << 4) // 0-7 is pic 1
+
+#define PIC2_ATA1_MASK (1 << 6) // 8-15 is pic 2
+#define PIC2_ATA2_MASK (1 << 7)
 
 /* reinitialize the PIC controllers, giving them specified vector offsets
    rather than 8h and 70h, as configured by default */
@@ -57,6 +65,7 @@ extern uint64_t gdt64_tss_offset[];  // from boot.asm
 #define IRQ_TIMER 0x20
 #define IRQ_KEYBOARD 0x21
 #define IRQ_SERIAL_1 0x24
+#define IRQ_ATA1 0x2E
 
 // Interrupt Descriptor Table Entry
 typedef struct idt_entry_t {
@@ -214,8 +223,8 @@ static void PIC_remap(int offset1, int offset2) {
 }
 
 static void set_PIC_mask() {
-	uint16_t pic1_mask = 0xff - 0b10010; // unmask serial 1, keyb
-	uint16_t pic2_mask = 0xff;
+	uint16_t pic1_mask = 0xff - (PIC1_KB_MASK | PIC1_SER1_MASK | PIC1_ENABLE_PIC2_MASK); 
+	uint16_t pic2_mask = 0xff - PIC2_ATA1_MASK;
 	outb(PIC1_DATA, pic1_mask);
     outb(PIC2_DATA, pic2_mask);
 }
@@ -276,6 +285,9 @@ void generic_handler(uint64_t isr_num, uint64_t error_code) {
 			break;
 		case ISR_KEXIT:
 			sys_exit();
+			break;
+		case IRQ_ATA1:
+			ata_irq();
 			break;
 		default:
 			printk("Interrupt 0x%lx not handled, stopping..., error code %ld\n", isr_num, error_code & 0xFF);
