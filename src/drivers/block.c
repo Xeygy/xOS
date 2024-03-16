@@ -109,6 +109,7 @@ check:
    - the controller is present, 
    - supports 48-but LBA mode, 
    - the API mode used by the device (ATA, ATAPI, SATA, or SATAPI). 
+if so, register with driver under given name
 */
 ATABlockDev *ata_probe(
     uint16_t io_base, 
@@ -131,6 +132,7 @@ ATABlockDev *ata_probe(
         ata->dev.read_block = &ata_48_read_block;
         ata->dev.type = dev;
         ata->dev.tot_length = lba_48_sector_ct;
+        ata->dev.name = name;
     } else {
         printk("unsupported device");
     }
@@ -175,6 +177,7 @@ int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dst) {
 
 void ata_irq() {
     // only support primary io bus for now
+    // TODO: actually use the node_list 
     if (inb(PRIM_IO+7) & 1) {
         printk("ATA error %x", inw(PRIM_IO+1));
         return;
@@ -190,4 +193,22 @@ int BLK_register_dev(struct BlockDev *dev) {
     new_node->next = node_list;
     node_list = new_node;
     return 0;
+}
+
+/*
+returns block device with name or NULL if not exists
+*/
+BlockDev *get_block_device(char *name) {
+    BDNode *node = node_list;
+    if (node_list == NULL) {
+        printk("No block devices created\n");
+    }
+    while(node != NULL) {
+        if (strcmp(name, node->curr->name) == 0) {
+            return node->curr;
+        }
+        node = node->next;
+    }
+    printk("No block devices with name \"%s\" found\n", name);
+    return NULL;
 }

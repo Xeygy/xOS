@@ -31,6 +31,7 @@ int kmain(uint64_t rbx) {
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
     //setup_snakes(1);
+    ata_probe(0x1F0, 0x3F6, 1, "ata_main", 0x2E);
     while (1) {
         PROC_run();
         asm volatile ("hlt");
@@ -41,7 +42,7 @@ void read_blk_test() {
     ATABlockDev *d;
     int i;
     uint8_t *blk = kmalloc(sizeof(uint16_t)*256);
-    d = ata_probe(0x1F0, 0x3F6, 1, "main", 1);
+    d = (ATABlockDev *) get_block_device("ata_main");
     d->dev.read_block((BlockDev *)d, 32, blk);
     for (i = 0; i < 512; i++) {
         printk("%x", blk[i]);
