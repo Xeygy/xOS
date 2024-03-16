@@ -101,7 +101,7 @@ ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base, uint64_t *lba_48_s
             *lba_48_sector_ct = *lba_48_sector_ct + (in_val << 16 * (i-100));
         }
     } 
-    printk("num: %lx\n", *lba_48_sector_ct);
+    dprintk(DPRINT_DETAILED, "lba sector_ct: %lx\n", *lba_48_sector_ct);
     return prim_dev;
 }
 /* 

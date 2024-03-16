@@ -42,12 +42,12 @@ void read_blk_test() {
     int i;
     uint8_t *blk = kmalloc(sizeof(uint16_t)*256);
     d = ata_probe(0x1F0, 0x3F6, 1, "main", 1);
-    d->dev.read_block((BlockDev *)d, 0, blk);
-    //while(gdb);
+    d->dev.read_block((BlockDev *)d, 32, blk);
     for (i = 0; i < 512; i++) {
         printk("%x", blk[i]);
     }
 }
+
 void test_threads(void* arg) {
     int i = 0;
     for (i = 1; i <= (uint64_t) arg; i++) {

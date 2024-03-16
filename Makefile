@@ -9,7 +9,7 @@ grub_cfg := src/arch/$(arch)/grub.cfg
 assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
-# dd if=os-x86_64.img of=test bs=512 count=1
+
 src_dirs := src/core src/drivers src/games src/memory src/processes src/utils
 include_flags := $(foreach dir,$(src_dirs),-iquote$(dir))
 c_source_files := $(foreach dir,$(src_dirs),$(wildcard $(dir)/*.c))
@@ -38,6 +38,10 @@ gdb:
 
 img: $(img)
 
+block_demo:
+	dd if=build/os-x86_64.img of=block32 bs=512 skip=32 count=1
+	hexdump -C block32
+	rm block32
 # we use a bash script to create the fs img, for in order 
 #   execution of `losetup -f` for loop0 and loop1
 # see https://stackoverflow.com/a/29085760 for more info
