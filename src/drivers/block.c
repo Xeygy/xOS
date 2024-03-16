@@ -57,7 +57,7 @@ ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base, uint64_t *lba_48_s
     // send the IDENTIFY command (0xEC) to the Command IO port (0x1F7)
     outb(io_base+7, IDENTIFY);
     // read the Status port (0x1F7) again. 
-    if ((in_val = inb(PRIM_IO+7)) == 0) {
+    if ((in_val = inb(io_base+7)) == 0) {
         printk("Drive does not exist");
         return ATA_UNKNOWN;
     } 
@@ -90,7 +90,7 @@ ata_dev_t ata_block_init(uint16_t io_base, uint16_t ctl_base, uint64_t *lba_48_s
 
     // read 256 16-bit values from IDENTIFY
     for (i = 0; i < 256; i++) {
-        in_val = inw(PRIM_IO);
+        in_val = inw(io_base);
         // uint16_t 83: Bit 10 is set if the drive supports LBA48 mode.
         if (i == 83 && (in_val & (1 << 10))) {
             dprintk(DPRINT_DETAILED, "Supports LBA48\n");
@@ -137,24 +137,26 @@ ATABlockDev *ata_probe(
     BLK_register_dev((BlockDev *) ata);
     return ata;
 }
-/* read block from */
+/* read block from ata device, assumes dev is an ata device */
 int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dst) {
     int i;
+    uint16_t io_base;
     uint16_t num_sectors=1;
     if (dev == NULL) {
         return 1;
     }
+    io_base = ((ATABlockDev *) dev)->io_base;
     //dev->blk_size
-    outb(PRIM_IO+6, 0x40); // 0x40 for the "master" or 0x50 for the "slave"
-    outb(PRIM_IO+2, num_sectors >> 8);   // sector hi
-    outb(PRIM_IO+3, (blk_num >> 24) & 0xFF); // byte 4
-    outb(PRIM_IO+4, (blk_num >> 32) & 0xFF); // byte 5
-    outb(PRIM_IO+5, (blk_num >> 40) & 0xFF); // byte 6
-    outb(PRIM_IO+2, num_sectors & 0xFF); // sector lo
-    outb(PRIM_IO+3, blk_num & 0xFF);         // byte 1
-    outb(PRIM_IO+4, blk_num >> 8 & 0xFF);    // byte 2
-    outb(PRIM_IO+5, blk_num >> 16 & 0xFF);   // byte 3
-    outb(PRIM_IO+7, READ_SECTORS);
+    outb(io_base+6, 0x40); // 0x40 for the "master" or 0x50 for the "slave"
+    outb(io_base+2, num_sectors >> 8);   // sector hi
+    outb(io_base+3, (blk_num >> 24) & 0xFF); // byte 4
+    outb(io_base+4, (blk_num >> 32) & 0xFF); // byte 5
+    outb(io_base+5, (blk_num >> 40) & 0xFF); // byte 6
+    outb(io_base+2, num_sectors & 0xFF); // sector lo
+    outb(io_base+3, blk_num & 0xFF);         // byte 1
+    outb(io_base+4, blk_num >> 8 & 0xFF);    // byte 2
+    outb(io_base+5, blk_num >> 16 & 0xFF);   // byte 3
+    outb(io_base+7, READ_SECTORS);
 
     cli();
     // block and wait for interrupt
@@ -166,12 +168,13 @@ int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dst) {
     sti();
 
     for (i = 0; i < 256; i++) {
-        *(((uint16_t *) dst) + i) = inw(PRIM_IO);
+        *(((uint16_t *) dst) + i) = inw(io_base);
     } 
     return 0;
 }
 
 void ata_irq() {
+    // only support primary io bus for now
     if (inb(PRIM_IO+7) & 1) {
         printk("ATA error %x", inw(PRIM_IO+1));
         return;
