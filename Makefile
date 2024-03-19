@@ -10,7 +10,7 @@ assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
 
-src_dirs := src/core src/drivers src/games src/memory src/processes src/utils
+src_dirs := src/core src/drivers src/games src/memory src/processes src/utils src/fs
 include_flags := $(foreach dir,$(src_dirs),-iquote$(dir))
 c_source_files := $(foreach dir,$(src_dirs),$(wildcard $(dir)/*.c))
 c_depfiles := $(patsubst %.c, \

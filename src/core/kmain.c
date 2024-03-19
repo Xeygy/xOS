@@ -8,11 +8,13 @@
 #include "block.h"
 #include "asm.h"
 #include "kmalloc.h"
+#include "mbr.h"
 #include <stdint.h>
 
 void test_threads(void* arg);
 void keyboard_io(void *);
 void read_blk_test();
+void read_mbr_test();
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
@@ -27,7 +29,8 @@ int kmain(uint64_t rbx) {
     sti();
     init_proc();
     // syscall(SYS_TEST);
-    PROC_create_kthread(&read_blk_test, (void *) 0);
+    //PROC_create_kthread(&read_blk_test, (void *) 0);
+    PROC_create_kthread(&read_mbr_test, (void *) 0);
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
     //setup_snakes(1);
@@ -38,10 +41,17 @@ int kmain(uint64_t rbx) {
     }
 }
 
+void read_mbr_test() {
+    mbr_table *mbr = read_mbr();
+    print_mbr(mbr);
+    kfree(mbr);
+}
+
 void read_blk_test() {
     ATABlockDev *d;
     int i;
     uint8_t *blk = kmalloc(sizeof(uint16_t)*256);
+    // TODO block until read a specific block w/map
     d = (ATABlockDev *) get_block_device("ata_main");
     d->dev.read_block((BlockDev *)d, 32, blk);
     for (i = 0; i < 512; i++) {
