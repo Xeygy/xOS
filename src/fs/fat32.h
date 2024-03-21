@@ -1,5 +1,15 @@
 #ifndef FAT32_H
 #define FAT32_H
+
+#define FAT_ATTR_READ_ONLY 0x01
+#define FAT_ATTR_HIDDEN 0x02
+#define FAT_ATTR_SYSTEM 0x04
+#define FAT_ATTR_VOLUME_ID 0x08
+#define FAT_ATTR_DIRECTORY 0x10
+#define FAT_ATTR_ARCHIVE 0x20
+#define FAT_ATTR_LFN (FAT_ATTR_READ_ONLY | FAT_ATTR_HIDDEN | \
+                    FAT_ATTR_SYSTEM | FAT_ATTR_VOLUME_ID)
+
 typedef struct FAT_BPB {
     uint8_t jmp[3];
     char    oem_id[8];
@@ -37,5 +47,40 @@ typedef struct FAT32 {
     uint8_t boot_sig[2];
 } __attribute__((packed)) FAT32;
 
-void read_fat32_dirent();
+
+typedef struct FATDirent {
+    char name[11];
+    uint8_t attr;
+    uint8_t nt;
+    uint8_t ct_tenths;
+    uint16_t ct;
+    uint16_t cd;
+    uint16_t ad;
+    uint16_t cluster_hi;
+    uint16_t mt;
+    uint16_t md;
+    uint16_t cluster_lo;
+    uint32_t size;
+} __attribute__((packed)) FATDirent;
+
+typedef struct FATLongDirent {
+    uint8_t order;
+    uint16_t first[5];
+    uint8_t attr;
+    uint8_t type;
+    uint8_t checksum;
+    uint16_t middle[6];
+    uint16_t zero;
+    uint16_t last[2];
+} __attribute__((packed)) FATLongDirent;
+
+/* 
+callback for fat32_readdir
+takes the current directory's name, fatdirent metadata, and optional params
+*/
+typedef int (*fat32_readdir_cb)(char *, FATDirent *, void *);
+
+/* read directory at cluster_number and apply callback with arg p to dirents */
+void fat32_readdir(uint64_t cluster_number, fat32_readdir_cb cb, void *p);
+
 #endif

@@ -11,6 +11,7 @@
 #include "mbr.h"
 #include "fat32.h"
 #include "fs_utils.h"
+#include "string.h"
 #include <stdint.h>
 
 void test_threads(void* arg);
@@ -36,8 +37,8 @@ int kmain(uint64_t rbx) {
     // syscall(SYS_TEST);
     //PROC_create_kthread(&read_blk_test, (void *) 0);
     PROC_create_kthread(&read_fat_test, (void *) 0);
-    PROC_create_kthread(&dirsplit_test, (void *) 0);
-    PROC_create_kthread(&str_builder_test, (void *) 0);
+    // PROC_create_kthread(&dirsplit_test, (void *) 0);
+    // PROC_create_kthread(&str_builder_test, (void *) 0);
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
     //setup_snakes(1);
@@ -76,8 +77,52 @@ void str_builder_test() {
     printk("\n%s\n", full);
 }
 
+int full_tree_cb(char *name, FATDirent *dirent, void *indent) {
+    int i;
+    if (name[0] == '.')
+        return 0;
+    if (indent > 0)
+        printk("|");
+    for (i = 0; i < (uint64_t) indent; i++)
+        printk("--");
+    if (dirent->attr & FAT_ATTR_DIRECTORY)
+        printk("%s/ (size: %u, attr: 0x%x)\n", name, dirent->size, dirent->attr);
+    else
+        printk("%s (size: %u, attr: 0x%x)\n", name, dirent->size, dirent->attr);
+    if ((dirent->attr & FAT_ATTR_DIRECTORY) && name[0] != '.') {
+        fat32_readdir((dirent->cluster_hi << 16) + dirent->cluster_lo, full_tree_cb, indent+1);
+    }
+    return 1;
+}
+
+/* run ls on directory given by filepath */
+int ls_cb(char *name, FATDirent *dirent, void *filepath){
+    FilePath *next = NULL, *curr=NULL;
+    if (filepath == NULL) {
+        if (dirent->attr & FAT_ATTR_DIRECTORY)
+            printk("\n|--%s/ (size: %u, attr: 0x%x)", name, dirent->size, dirent->attr);
+        else
+            printk("\n|--%s (size: %u, attr: 0x%x)", name, dirent->size, dirent->attr);
+        return 1;
+    }
+    curr = ((FilePath *) filepath);
+    if (strcmp(name, curr->name) == 0) {
+        next = curr->next;
+        printk("%s/", curr->name);
+        kfree(curr->name);
+        kfree(curr);
+        fat32_readdir((dirent->cluster_hi << 16) + dirent->cluster_lo, ls_cb, next);
+    }
+    return 1;
+}
+
 void read_fat_test() {
-    read_fat32_dirent();
+    printk("\n<<full tree>>\n");
+    fat32_readdir(2, full_tree_cb, 0);
+    printk("\n<<ls_cb>>\n");
+    // "boot/grub/fonts/"
+    // "new_dir/"
+    fat32_readdir(2, ls_cb, split_fpath("new_dir/", '/'));
 }
 
 void read_blk_test() {

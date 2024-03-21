@@ -2,7 +2,7 @@
 #define FS_UTILS_H
 
 #include <stdint.h>
-
+#include "fat32.h"
 typedef struct StringBuilder {
     char *segment;
     int idx;
@@ -21,7 +21,13 @@ FilePath *split_fpath(char *str, char delim);
 /* inserts new_val into pile such that prev->idx <= idx <= next->idx*/
 StringBuilder *insert_sb(StringBuilder *pile, char *new_val, int idx);
 
-/* return the malloc'd string represented by sb and free sb */
+/* return the malloc'd string represented by sb; then free sb */
 char *build_string(StringBuilder *sb);
+
+/* return a malloc'd string that contains the full segment of this dirent */
+char *read_lfn_str(FATLongDirent *dirent);
+
+/* return a malloc'd string that contains the full segment of this dirent */
+char *read_classic_dir_str(FATDirent *dirent);
 
 #endif

@@ -5,44 +5,12 @@
 #include "kmalloc.h"
 #include "print.h"
 #include "mbr.h"
+#include "fs_utils.h"
 #include "fat32.h"
 
 #define DIRENT_SIZE 32
 #define BLK_DEV_NAME "fat32_device"
-#define FAT_ATTR_READ_ONLY 0x01
-#define FAT_ATTR_HIDDEN 0x02
-#define FAT_ATTR_SYSTEM 0x04
-#define FAT_ATTR_VOLUME_ID 0x08
-#define FAT_ATTR_DIRECTORY 0x10
-#define FAT_ATTR_ARCHIVE 0x20
-#define FAT_ATTR_LFN (FAT_ATTR_READ_ONLY | FAT_ATTR_HIDDEN | \
-                    FAT_ATTR_SYSTEM | FAT_ATTR_VOLUME_ID)
-
-typedef struct FATDirent {
-    char name[11];
-    uint8_t attr;
-    uint8_t nt;
-    uint8_t ct_tenths;
-    uint16_t ct;
-    uint16_t cd;
-    uint16_t ad;
-    uint16_t cluster_hi;
-    uint16_t mt;
-    uint16_t md;
-    uint16_t cluster_lo;
-    uint32_t size;
-} __attribute__((packed)) FATDirent;
-
-typedef struct FATLongDirent {
-    uint8_t order;
-    uint16_t first[5];
-    uint8_t attr;
-    uint8_t type;
-    uint8_t checksum;
-    uint16_t middle[6];
-    uint16_t zero;
-    uint16_t last[2];
-} __attribute__((packed)) FATLongDirent;
+#define SKIP_DIRENT 0xE5
 
 static int initialized = 0;
 static mbr_table *mbr = NULL;
@@ -50,6 +18,7 @@ FAT32 *fat = NULL;
 
 void print_fat32(FAT32 *fat);
 FAT32 *read_fat32(uint64_t block_num, char *dev_name);
+uint64_t next_in_chain(uint64_t fat_idx_start);
 // TODO: use fat
 // read through a path
 
@@ -64,35 +33,108 @@ int fat32_init() {
     return initialized;
 }
 
-void read_fat32_dirent() {
-    uint64_t cluster_2_sector;
+void fat32_readdir(uint64_t cluster_number, fat32_readdir_cb cb, void *p) {
+    uint64_t cluster_2_lba, tgt_lba, i;
     uint8_t *buf = NULL;
     FATDirent *dirent = NULL;
     FATLongDirent *ldirent = NULL;
     ATABlockDev *d = NULL;
-    if (initialized || fat32_init()) {
-        // locate dirent
-        cluster_2_sector = mbr->pe_1.first_lba + fat->bpb.reserved_sectors + fat->sectors_per_fat * fat->bpb.num_fats;
-        
-        // read root dirent
-        buf = (uint8_t *) kmalloc(512);
-        
-        d = (ATABlockDev *) get_block_device(BLK_DEV_NAME);
-        d->dev.read_block((BlockDev *) d, cluster_2_sector, buf);
-        if (buf[11] == FAT_ATTR_LFN) {
-            ldirent = kmalloc(sizeof(FATLongDirent));
-            memcpy(ldirent, buf, DIRENT_SIZE);
-            printk("LFN name: %c%c%c%c%c\n", ldirent->first[0], ldirent->first[1], ldirent->first[2], ldirent->first[3], ldirent->first[4]);
-            kfree(ldirent);
-        } else {
-            dirent = kmalloc(sizeof(FATDirent));
-            memcpy(dirent, buf, DIRENT_SIZE);
-            printk("ent name: %c%c%c, size: 0x%x\n", dirent->name[0],dirent->name[1],dirent->name[2], dirent->size);
-            printk("flags: 0x%x\n", dirent->attr);
-            kfree(dirent);
-        }
-        kfree(buf);
+    StringBuilder *sb = NULL;
+    char *segment = NULL;
+    int end = 0;
+
+    if (cluster_number < 2) {
+        printk("read_fat32_directory: cluster number must be >= 2, got %lu\n", cluster_number);
+        return;
     }
+    if (!initialized) {
+        if (!fat32_init()) 
+            return;
+    }
+
+    cluster_2_lba = mbr->pe_1.first_lba + fat->bpb.reserved_sectors + fat->sectors_per_fat * fat->bpb.num_fats;
+    
+    // read cluster
+    buf = (uint8_t *) kmalloc(512);
+    d = (ATABlockDev *) get_block_device(BLK_DEV_NAME);
+
+    do {
+        tgt_lba = cluster_2_lba + (cluster_number - 2) * fat->bpb.sectors_per_cluster;
+        d->dev.read_block((BlockDev *) d, tgt_lba, buf);
+
+        for (i = 0; (i < 512) && !end; i += DIRENT_SIZE) {
+            if (buf[i+11] == FAT_ATTR_LFN) {
+                ldirent = kmalloc(sizeof(FATLongDirent));
+                memcpy(ldirent, buf+i, DIRENT_SIZE);
+
+                segment = read_lfn_str(ldirent);
+                sb = insert_sb(sb, segment, ldirent->order & 0x3F); // mask to get order
+                kfree(segment);
+                kfree(ldirent);
+            } else {
+                dirent = kmalloc(sizeof(FATDirent));
+                memcpy(dirent, buf+i, DIRENT_SIZE);
+
+                if (dirent->name[0] == 0) {
+                    // no more entries in this directory
+                    end = 1;
+                } else if (dirent->name[0] == SKIP_DIRENT) {
+                    // skip the current dirent
+                    if (sb != NULL)
+                        kfree(build_string(sb)); // hack to free string builder
+                } else {
+                    if (sb != NULL) {
+                        segment = build_string(sb);
+                    } else {
+                        segment = read_classic_dir_str(dirent);
+                    }
+                    // run the callback on the current dirent
+                    if (cb != NULL)
+                        cb(segment, dirent, p);
+                    kfree(segment);
+                }
+                sb = NULL;
+                kfree(dirent);
+            }
+        }
+        cluster_number = next_in_chain(cluster_number);
+    } while (!end && cluster_number != 0);
+    if (!end) {
+        printk("shouldn't get here, incomplete cluster read\n");
+    }
+    kfree(buf);
+}
+
+// returns the value of the next in chain or 0 if last entry
+uint64_t next_in_chain(uint64_t fat_idx_start) {
+    uint64_t tgt_block, tgt_offset;
+    uint32_t entry;
+    uint8_t *buf = NULL;
+    ATABlockDev *d = NULL;
+    // int gdb=1;
+    // while(gdb);
+    if (fat_idx_start/(fat->bpb.bytes_per_sector/4) >= fat->sectors_per_fat) {
+        printk("read_cluster_chain: fat_idx too high, index out of bounds in FAT\n");
+        printk("..start %lu, bps: %u, spf: %u\n", fat_idx_start, fat->bpb.bytes_per_sector, fat->sectors_per_fat);
+        return 0;
+    }
+
+    if (fat->bpb.bytes_per_sector != 512 || fat->bpb.sectors_per_cluster != 1) {
+        printk("read_cluster_chain: unexpected bytes_per_sector and/or sectors_per_cluster\n");
+    }
+    // index into fat table, assume bytes_per_sector = 512, sectors_per_cluster = 1, block size 512
+    tgt_block = fat_idx_start/(512/4) + mbr->pe_1.first_lba + fat->bpb.reserved_sectors;
+    tgt_offset = fat_idx_start % (512/4);
+
+    buf = (uint8_t *) kmalloc(512);
+    d = (ATABlockDev *) get_block_device(BLK_DEV_NAME);
+    d->dev.read_block((BlockDev *) d, tgt_block, buf);
+    entry = *((uint32_t*) &buf[tgt_offset * 4]) & 0x0FFFFFFF;
+    kfree(buf);
+    if (entry >= 0x0FFFFFF8) {
+        return 0;
+    }    
+    return entry;
 }
 
 FAT32 *read_fat32(uint64_t block_num, char *dev_name) {
@@ -115,6 +157,7 @@ FAT32 *read_fat32(uint64_t block_num, char *dev_name) {
     print_fat32(fat32);
     return fat32;
 }
+
 
 void print_fat32(FAT32 *fat) {
     printk("bytes per sec: %d, sec per cluster: %d\n", fat->bpb.bytes_per_sector, fat->bpb.sectors_per_cluster);

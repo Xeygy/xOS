@@ -3,6 +3,8 @@
 #include "string.h"
 #include "print.h"
 
+#define LFN_SEG_SIZE 13
+#define CLASSIC_NAME_SIZE 11
 void dprint_sb(StringBuilder *sb, dprint_verbosity_t verb);
  
 /* converts the string into malloc'd file path pointer list */
@@ -19,6 +21,7 @@ FilePath *split_fpath(char *str, char delim) {
                 tmp->name = kmalloc(curr_len+1);
                 memcpy(tmp->name, (char *) (str+idx-curr_len), curr_len);
                 tmp->name[curr_len] = '\0';
+                tmp->next=NULL;
                 if (first == NULL) {
                     first=tmp;
                     last=tmp;
@@ -117,4 +120,49 @@ char *build_string(StringBuilder *sb) {
         kfree(temp_sb);
     }
     return new_string;
+}
+
+/* return a malloc'd string that contains the full segment of this dirent */
+char *read_lfn_str(FATLongDirent *dirent) {
+    int i;
+    char *seg=NULL;
+    if (dirent == NULL) {
+        printk("read_lfn_str: recieved null dirent\n");
+    }
+    seg = kmalloc(LFN_SEG_SIZE+1);
+    memset(seg, 0, LFN_SEG_SIZE+1);
+    // convert 16 byte to 8 byte
+    for(i=0; i<5; i++)
+        seg[i] = dirent->first[i];
+    for (i=0; i<6; i++)
+        seg[i+5] = dirent->middle[i];
+    for (i=0; i<2; i++)
+        seg[i+11] = dirent->last[i];
+    return seg;
+}
+
+/* return a malloc'd string that contains the full segment of this dirent */
+char *read_classic_dir_str(FATDirent *dirent) {
+    char *seg=NULL;
+    int i, j;
+    if (dirent == NULL) {
+        printk("read_classic_dir_str: recieved null dirent\n");
+    }
+    seg = kmalloc(CLASSIC_NAME_SIZE+1);
+    memset(seg, 0, CLASSIC_NAME_SIZE+1);
+    for (i=0; i<9; i++) {
+        if (dirent->name[i] == '\0' || dirent->name[i] == ' ')
+            break;
+        seg[i] = dirent->name[i];
+    }
+    seg[i] = '.';
+    for (j=0; j<3; j++) {
+        if (dirent->name[i+j] == '\0' || dirent->name[i] == ' ') {
+            if (j == 0) 
+                seg[i] = '\0';
+            break;
+        }
+        seg[i+j+1] = dirent->name[i+j];
+    }
+    return seg;
 }
