@@ -10,11 +10,11 @@
 
 static void print_mbr_ent(mbr_entry *entry, char *prefix);
 
-mbr_table *read_mbr() {
+mbr_table *read_mbr(char *dev_name) {
     ATABlockDev *d = NULL;
     uint8_t *buf = NULL;
     mbr_table *mbr_tb =NULL;
-    d = (ATABlockDev *) get_block_device("ata_main");
+    d = (ATABlockDev *) get_block_device(dev_name);
     if (d == NULL) {
         return NULL;
     }

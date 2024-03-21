@@ -28,7 +28,7 @@ typedef struct mbr_table {
 reads the mbr and returns a malloc'd struct
 containing its contents.
 */
-mbr_table *read_mbr();
+mbr_table *read_mbr(char *dev_name);
 
 /* print out the values from the mbr */
 void print_mbr(mbr_table *mbr);

@@ -9,12 +9,17 @@
 #include "asm.h"
 #include "kmalloc.h"
 #include "mbr.h"
+#include "fat32.h"
+#include "fs_utils.h"
 #include <stdint.h>
 
 void test_threads(void* arg);
 void keyboard_io(void *);
 void read_blk_test();
 void read_mbr_test();
+void read_fat_test();
+void dirsplit_test();
+void str_builder_test();
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
@@ -30,11 +35,12 @@ int kmain(uint64_t rbx) {
     init_proc();
     // syscall(SYS_TEST);
     //PROC_create_kthread(&read_blk_test, (void *) 0);
-    PROC_create_kthread(&read_mbr_test, (void *) 0);
+    PROC_create_kthread(&read_fat_test, (void *) 0);
+    PROC_create_kthread(&dirsplit_test, (void *) 0);
+    PROC_create_kthread(&str_builder_test, (void *) 0);
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
     //setup_snakes(1);
-    ata_probe(0x1F0, 0x3F6, 1, "ata_main", 0x2E);
     while (1) {
         PROC_run();
         asm volatile ("hlt");
@@ -42,9 +48,36 @@ int kmain(uint64_t rbx) {
 }
 
 void read_mbr_test() {
-    mbr_table *mbr = read_mbr();
+    mbr_table *mbr = read_mbr("ata_main");
     print_mbr(mbr);
     kfree(mbr);
+}
+
+void dirsplit_test() {
+    FilePath * fp;
+    fp = split_fpath("//hello/how/are//you//", '/');
+    while (fp != NULL) {
+        printk("%s :: ", fp->name);
+        fp = fp->next;
+    }
+}
+
+void str_builder_test() {
+    StringBuilder *nolan = NULL;
+    char *full = NULL;
+    nolan = insert_sb(nolan, "name ", 1);
+    nolan = insert_sb(nolan, "ive ", 4);
+    nolan = insert_sb(nolan, "my ", 0);
+    nolan = insert_sb(nolan, "is ", 2);
+    nolan = insert_sb(nolan, "please.", 6);
+    nolan = insert_sb(nolan, "i want to sell computers to you, ", 5);
+    nolan = insert_sb(nolan, "jony ", 3);
+    full = build_string(nolan);
+    printk("\n%s\n", full);
+}
+
+void read_fat_test() {
+    read_fat32_dirent();
 }
 
 void read_blk_test() {

@@ -110,6 +110,7 @@ check:
    - supports 48-but LBA mode, 
    - the API mode used by the device (ATA, ATAPI, SATA, or SATAPI). 
 if so, register with driver under given name
+else, return NULL
 */
 ATABlockDev *ata_probe(
     uint16_t io_base, 
@@ -133,12 +134,16 @@ ATABlockDev *ata_probe(
         ata->dev.type = dev;
         ata->dev.tot_length = lba_48_sector_ct;
         ata->dev.name = name;
+
+        BLK_register_dev((BlockDev *) ata);
     } else {
         printk("unsupported device");
     }
-    BLK_register_dev((BlockDev *) ata);
     return ata;
 }
+
+// TODO: add block offset device
+
 /* read block from ata device, assumes dev is an ata device */
 int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dst) {
     int i;
