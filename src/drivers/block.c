@@ -180,7 +180,7 @@ int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dst) {
 
 void ata_irq() {
     // only support primary io bus for now
-    // TODO: actually use the node_list 
+    // TODO: actually use the node_list/serialize
     if (inb(PRIM_IO+7) & 1) {
         printk("ATA error %x", inw(PRIM_IO+1));
         return;
