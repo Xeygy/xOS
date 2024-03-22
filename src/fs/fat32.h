@@ -47,7 +47,6 @@ typedef struct FAT32 {
     uint8_t boot_sig[2];
 } __attribute__((packed)) FAT32;
 
-
 typedef struct FATDirent {
     char name[11];
     uint8_t attr;
@@ -74,6 +73,17 @@ typedef struct FATLongDirent {
     uint16_t last[2];
 } __attribute__((packed)) FATLongDirent;
 
+typedef struct File {
+    uint8_t			f_mode; // Read/Write perms
+	uint64_t		f_pos;  // read offset
+    FATDirent       *dirent; // metadata
+    // TODO: eventually put into f_op
+    int (*close) (struct File **file);
+    int (*read) (struct File *file, char *dst, int len);
+    // int (*write)(struct File *file, char *dst, int len);
+    int (*lseek) (struct File *file, uint64_t offset);
+} File;
+
 /* 
 callback for fat32_readdir
 takes the current directory's name, fatdirent metadata, and optional params
@@ -82,5 +92,7 @@ typedef int (*fat32_readdir_cb)(char *, FATDirent *, void *);
 
 /* read directory at cluster_number and apply callback with arg p to dirents */
 void fat32_readdir(uint64_t cluster_number, fat32_readdir_cb cb, void *p);
+/* returns file at dirent*/
+File *open(FATDirent *dirent);
 
 #endif

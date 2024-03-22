@@ -12,6 +12,7 @@
 #include "fat32.h"
 #include "fs_utils.h"
 #include "string.h"
+#include "md5.h"
 #include <stdint.h>
 
 void test_threads(void* arg);
@@ -21,6 +22,7 @@ void read_mbr_test();
 void read_fat_test();
 void dirsplit_test();
 void str_builder_test();
+void md5_test();
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
@@ -37,7 +39,7 @@ int kmain(uint64_t rbx) {
     // syscall(SYS_TEST);
     //PROC_create_kthread(&read_blk_test, (void *) 0);
     PROC_create_kthread(&read_fat_test, (void *) 0);
-    // PROC_create_kthread(&dirsplit_test, (void *) 0);
+    PROC_create_kthread(&md5_test, (void *) 0);
     // PROC_create_kthread(&str_builder_test, (void *) 0);
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
@@ -47,6 +49,26 @@ int kmain(uint64_t rbx) {
         asm volatile ("hlt");
     }
 }
+
+void md5_test() {
+    uint8_t hash[16];
+    int i;
+    md5String("", hash);
+    for (i = 0; i<16; i++) {
+        if (hash[i] < 0x10)
+            printk("0");
+        printk("%x", hash[i]);
+    }
+    printk("\nd41d8cd98f00b204e9800998ecf8427e\n");
+
+    md5String("message digest", hash);
+    for (i = 0; i<16; i++) {
+        if (hash[i] < 0x10)
+            printk("0");
+        printk("%x", hash[i]);
+    }
+    printk("\nf96b697d7cb7938d525a2f31aaf161d0\n");
+} 
 
 void read_mbr_test() {
     mbr_table *mbr = read_mbr("ata_main");
@@ -116,13 +138,44 @@ int ls_cb(char *name, FATDirent *dirent, void *filepath){
     return 1;
 }
 
+/* read file at filepath */
+int read_cb(char *name, FATDirent *dirent, void *filepath){
+    FilePath *next = NULL, *curr=NULL;
+    File *tgt = NULL;
+    char *contents = NULL;
+    if (filepath == NULL) {
+        return -1;
+    }
+    curr = ((FilePath *) filepath);
+
+    if (curr->next == NULL) {
+        // look for file and read
+        if (!(dirent->attr & FAT_ATTR_DIRECTORY) && 
+        strcmp(name, curr->name) == 0) {  
+            printk("%s: ", curr->name);
+            tgt = open(dirent);
+            contents = kmalloc(64);
+            memset(contents, 0, 64);
+            printk("read %d bytes\n", tgt->read(tgt, contents, 63));
+            tgt->close(&tgt);
+            printk("contents: %s", contents);
+        }
+    } else if ((dirent->attr & FAT_ATTR_DIRECTORY) && 
+                strcmp(name, curr->name) == 0) {
+            // traverse directories
+            next = curr->next;
+            printk("%s/", curr->name);
+            fat32_readdir((dirent->cluster_hi << 16) + dirent->cluster_lo, read_cb, next);
+    }   
+    return 1;
+}
+
 void read_fat_test() {
-    printk("\n<<full tree>>\n");
-    fat32_readdir(2, full_tree_cb, 0);
-    printk("\n<<ls_cb>>\n");
-    // "boot/grub/fonts/"
-    // "new_dir/"
-    fat32_readdir(2, ls_cb, split_fpath("new_dir/", '/'));
+    FilePath *fp;
+    fp=split_fpath("hello.txt", '/');
+    fat32_readdir(2, read_cb, fp);
+    fp=split_fpath("nest/bird.txt", '/');
+    fat32_readdir(2, read_cb, fp);
 }
 
 void read_blk_test() {

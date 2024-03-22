@@ -38,10 +38,13 @@ gdb:
 
 img: $(img)
 
+# git stash
+# git checkout 648b89cc0b5a74f7874d9a54727b557606ec13f7
 block_demo:
 	dd if=build/os-x86_64.img of=block32 bs=512 skip=32 count=1
 	hexdump -C block32
 	rm block32
+
 # we use a bash script to create the fs img, for in order 
 #   execution of `losetup -f` for loop0 and loop1
 # see https://stackoverflow.com/a/29085760 for more info
@@ -64,6 +67,9 @@ $(img): $(kernel) $(grub_cfg)
 		$$loop0;                                             \
 	sudo cp $(kernel) /mnt/fatgrub/boot/kernel.bin;          \
 	sudo cp $(grub_cfg) /mnt/fatgrub/boot/grub/grub.cfg;     \
+	echo "hello world!" | sudo tee /mnt/fatgrub/hello.txt; \
+	sudo mkdir /mnt/fatgrub/nest; \
+	echo "I'm nested :o" | sudo tee /mnt/fatgrub/nest/bird.txt; \
 	sudo umount /mnt/fatgrub;                                \
 	sudo losetup -d $$loop0;                                 \
 	sudo losetup -d $$loop1;                                 \

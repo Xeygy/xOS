@@ -142,8 +142,6 @@ ATABlockDev *ata_probe(
     return ata;
 }
 
-// TODO: add block offset device
-
 /* read block from ata device, assumes dev is an ata device */
 int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dst) {
     int i;

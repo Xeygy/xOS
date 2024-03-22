@@ -11,6 +11,8 @@
 #define DIRENT_SIZE 32
 #define BLK_DEV_NAME "fat32_device"
 #define SKIP_DIRENT 0xE5
+#define FMODE_RD 0x01
+#define FMODE_WR 0x02
 
 static int initialized = 0;
 static mbr_table *mbr = NULL;
@@ -19,15 +21,14 @@ FAT32 *fat = NULL;
 void print_fat32(FAT32 *fat);
 FAT32 *read_fat32(uint64_t block_num, char *dev_name);
 uint64_t next_in_chain(uint64_t fat_idx_start);
-// TODO: use fat
-// read through a path
+int fat32_read(File *f, char *dst, int len);
+int fat32_close(File **fp);
 
 /* try to initialize device 1 on success, 0 on failure */
 int fat32_init() {
     if (ata_probe(0x1F0, 0x3F6, 1, BLK_DEV_NAME, 0x2E) != NULL) {
         mbr = read_mbr(BLK_DEV_NAME);
         fat = read_fat32(mbr->pe_1.first_lba, BLK_DEV_NAME);
-        // TODO map entire fat table to memory      
         initialized = 1;
     }
     return initialized;
@@ -111,8 +112,7 @@ uint64_t next_in_chain(uint64_t fat_idx_start) {
     uint32_t entry;
     uint8_t *buf = NULL;
     ATABlockDev *d = NULL;
-    // int gdb=1;
-    // while(gdb);
+
     if (fat_idx_start/(fat->bpb.bytes_per_sector/4) >= fat->sectors_per_fat) {
         printk("read_cluster_chain: fat_idx too high, index out of bounds in FAT\n");
         printk("..start %lu, bps: %u, spf: %u\n", fat_idx_start, fat->bpb.bytes_per_sector, fat->sectors_per_fat);
@@ -158,10 +158,89 @@ FAT32 *read_fat32(uint64_t block_num, char *dev_name) {
     return fat32;
 }
 
-
 void print_fat32(FAT32 *fat) {
     printk("bytes per sec: %d, sec per cluster: %d\n", fat->bpb.bytes_per_sector, fat->bpb.sectors_per_cluster);
     printk("num fats %d, sec per fat %d\n", fat->bpb.num_fats, fat->sectors_per_fat);
     printk("root cluster: 0x%x\n", fat->root_cluster_number);
 }
 
+// open file at dirent
+File *open(FATDirent *dirent) {
+    File *newf = NULL;
+    FATDirent *dirent_copy = NULL;
+    if (dirent != NULL) {
+        newf = kmalloc(sizeof(File));
+        dirent_copy = kmalloc(sizeof(FATDirent));
+        memcpy(dirent_copy, dirent, sizeof(FATDirent));
+
+        newf->f_mode = FMODE_RD;
+        newf->f_pos = 0;
+        newf->dirent = dirent_copy;
+        newf->read = fat32_read;
+        newf->close = fat32_close;
+        newf->lseek = NULL;
+    }
+    return newf;
+} 
+
+/* frees the file pointed to and sets the pointer to NULL */
+int fat32_close(File **fp) {
+    if (*fp == NULL) {
+        printk("Tried to close a NULL file pointer");
+        return -1;
+    }
+    kfree(*fp);
+    *fp = NULL;
+    return 0;
+}
+
+/* 
+read len from file into dst, return num bytes transfered,
+-1 on error.
+*/
+int fat32_read(File *f, char *dst, int len) {
+    ATABlockDev *d = NULL;
+    uint64_t bytes_to_read, bytes_from_block, bytes_read, 
+    clusters_to_skip, cluster, cluster_2_lba, tgt_lba, tgt_offset;
+    int i;
+    uint8_t *buf = NULL;
+    if (!initialized) {
+        if (!fat32_init()) 
+            return -1;
+    }
+
+    buf = (uint8_t *) kmalloc(512);
+    d = (ATABlockDev *) get_block_device(BLK_DEV_NAME);
+    bytes_read = 0;
+    cluster = (f->dirent->cluster_hi << 16) + f->dirent->cluster_lo;
+    cluster_2_lba = mbr->pe_1.first_lba + fat->bpb.reserved_sectors + fat->sectors_per_fat * fat->bpb.num_fats;
+    if (f->dirent->size - f->f_pos < len) {
+        bytes_to_read = f->dirent->size - f->f_pos;
+    } else {
+        bytes_to_read = len;
+    }
+
+    clusters_to_skip = f->f_pos/512; // cluster size
+    for (i=0; i < clusters_to_skip; i++)
+        cluster = next_in_chain(cluster);
+
+    do {
+        tgt_lba = cluster_2_lba + (cluster - 2) * fat->bpb.sectors_per_cluster;
+        tgt_offset = f->f_pos % 512;
+        d->dev.read_block((BlockDev *) d, tgt_lba, buf); 
+        if (512-tgt_offset < bytes_to_read) {
+            bytes_from_block = 512-tgt_offset;
+        } else {
+            bytes_from_block = bytes_to_read;
+        }
+        memcpy(dst + bytes_read, buf+tgt_offset, bytes_from_block);
+        bytes_read += bytes_from_block;
+        
+        cluster = next_in_chain(cluster);
+        tgt_offset = 0;
+        bytes_to_read -= bytes_from_block;
+    } while (cluster != 0);
+
+    kfree(buf);
+    return bytes_read;
+}

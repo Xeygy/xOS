@@ -35,6 +35,20 @@ FilePath *split_fpath(char *str, char delim) {
         curr_len++;
         idx++;
     }
+    if (curr_len > 0) {
+        tmp = kmalloc(sizeof(FilePath));
+        tmp->name = kmalloc(curr_len+1);
+        memcpy(tmp->name, (char *) (str+idx-curr_len), curr_len);
+        tmp->name[curr_len] = '\0';
+        tmp->next=NULL;
+        if (first == NULL) {
+            first=tmp;
+            last=tmp;
+        } else {
+            last->next=tmp;
+            last=tmp;
+        }
+    }
     return first;
 }
 
