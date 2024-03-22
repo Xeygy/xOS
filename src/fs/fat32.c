@@ -23,6 +23,7 @@ FAT32 *read_fat32(uint64_t block_num, char *dev_name);
 uint64_t next_in_chain(uint64_t fat_idx_start);
 int fat32_read(File *f, char *dst, int len);
 int fat32_close(File **fp);
+int fat32_lseek(struct File *file, uint64_t offset);
 
 /* try to initialize device 1 on success, 0 on failure */
 int fat32_init() {
@@ -177,7 +178,7 @@ File *open(FATDirent *dirent) {
         newf->dirent = dirent_copy;
         newf->read = fat32_read;
         newf->close = fat32_close;
-        newf->lseek = NULL;
+        newf->lseek = fat32_lseek;
     }
     return newf;
 } 
@@ -243,4 +244,14 @@ int fat32_read(File *f, char *dst, int len) {
 
     kfree(buf);
     return bytes_read;
+}
+
+/* sets the file's read offset to offset, returns new offset */
+int fat32_lseek(struct File *file, uint64_t offset) {
+    if (file == NULL) {
+        printk("Tried to close a NULL file pointer");
+        return -1;
+    }
+    file->f_pos = offset;
+    return offset;
 }
