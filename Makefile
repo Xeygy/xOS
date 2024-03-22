@@ -70,6 +70,7 @@ $(img): $(kernel) $(grub_cfg)
 	echo "hello world!" | sudo tee /mnt/fatgrub/hello.txt; \
 	sudo mkdir /mnt/fatgrub/nest; \
 	echo "I'm nested :o" | sudo tee /mnt/fatgrub/nest/bird.txt; \
+	md5sum /mnt/fatgrub/hello.txt /mnt/fatgrub/boot/grub/i386-pc/acpi.mod /mnt/fatgrub/boot/grub/i386-pc/minix.mod; \
 	sudo umount /mnt/fatgrub;                                \
 	sudo losetup -d $$loop0;                                 \
 	sudo losetup -d $$loop1;                                 \

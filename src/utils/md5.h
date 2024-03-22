@@ -7,6 +7,8 @@ to test file reading
 */
 #include <stdint.h>
 #include "string.h"
+#include "fat32.h"
+#include "kmalloc.h"
 
 typedef struct{
     uint64_t size;        // Size of input in bytes
@@ -21,5 +23,6 @@ void md5Finalize(MD5Context *ctx);
 void md5Step(uint32_t *buffer, uint32_t *input);
 
 void md5String(char *input, uint8_t *result);
+void md5File(File *file, uint8_t *result);
 
 #endif

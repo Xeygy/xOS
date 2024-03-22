@@ -18,6 +18,9 @@ typedef struct FilePath {
 /* converts the string into malloc'd file path pointer list */
 FilePath *split_fpath(char *str, char delim);
 
+/* free all malloc'd contents of fp */
+void free_fpath(FilePath *fp);
+
 /* inserts new_val into pile such that prev->idx <= idx <= next->idx*/
 StringBuilder *insert_sb(StringBuilder *pile, char *new_val, int idx);
 

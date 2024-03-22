@@ -154,7 +154,6 @@ FAT32 *read_fat32(uint64_t block_num, char *dev_name) {
         fat32 = NULL;
     }
     kfree(buf);
-    print_fat32(fat32);
     return fat32;
 }
 
@@ -239,6 +238,7 @@ int fat32_read(File *f, char *dst, int len) {
         cluster = next_in_chain(cluster);
         tgt_offset = 0;
         bytes_to_read -= bytes_from_block;
+        f->f_pos += bytes_from_block;
     } while (cluster != 0);
 
     kfree(buf);

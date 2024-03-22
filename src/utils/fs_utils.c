@@ -52,6 +52,18 @@ FilePath *split_fpath(char *str, char delim) {
     return first;
 }
 
+/* free all malloc'd contents of fp */
+void free_fpath(FilePath *fp) {
+    FilePath *next;
+    if (fp == NULL) {
+        return;
+    }
+    next = fp->next;
+    kfree(fp->name);
+    kfree(fp);
+    free_fpath(next);
+}
+
 /* 
 inserts new_val into pile such that prev->idx <= new_val->idx <= next->idx 
  returns value of new pile 

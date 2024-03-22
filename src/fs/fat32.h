@@ -1,6 +1,8 @@
 #ifndef FAT32_H
 #define FAT32_H
 
+#include <stdint.h>
+
 #define FAT_ATTR_READ_ONLY 0x01
 #define FAT_ATTR_HIDDEN 0x02
 #define FAT_ATTR_SYSTEM 0x04
@@ -9,6 +11,8 @@
 #define FAT_ATTR_ARCHIVE 0x20
 #define FAT_ATTR_LFN (FAT_ATTR_READ_ONLY | FAT_ATTR_HIDDEN | \
                     FAT_ATTR_SYSTEM | FAT_ATTR_VOLUME_ID)
+
+#define FAT_ROOT_CLUSTER 2
 
 typedef struct FAT_BPB {
     uint8_t jmp[3];

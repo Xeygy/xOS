@@ -203,3 +203,21 @@ void md5String(char *input, uint8_t *result){
 
     memcpy(result, ctx.digest, 16);
 }
+
+void md5File(File *file, uint8_t *result){
+    char *input_buffer = kmalloc(1024);
+    size_t input_size = 0;
+
+    MD5Context ctx;
+    md5Init(&ctx);
+
+    while((input_size = file->read(file, input_buffer, 1024)) > 0){
+        md5Update(&ctx, (uint8_t *)input_buffer, input_size);
+    }
+
+    md5Finalize(&ctx);
+
+    kfree(input_buffer);
+
+    memcpy(result, ctx.digest, 16);
+}

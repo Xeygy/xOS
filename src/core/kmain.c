@@ -10,6 +10,7 @@
 #include "kmalloc.h"
 #include "mbr.h"
 #include "fat32.h"
+#include "f32_interface.h"
 #include "fs_utils.h"
 #include "string.h"
 #include "md5.h"
@@ -23,6 +24,7 @@ void read_fat_test();
 void dirsplit_test();
 void str_builder_test();
 void md5_test();
+void md5_on_new_files();
 
 /* kernel main function */
 int kmain(uint64_t rbx) {
@@ -38,8 +40,8 @@ int kmain(uint64_t rbx) {
     init_proc();
     // syscall(SYS_TEST);
     //PROC_create_kthread(&read_blk_test, (void *) 0);
-    PROC_create_kthread(&read_fat_test, (void *) 0);
-    PROC_create_kthread(&md5_test, (void *) 0);
+    //PROC_create_kthread(&read_fat_test, (void *) 0);
+    PROC_create_kthread(&md5_on_new_files, (void *) 0);
     // PROC_create_kthread(&str_builder_test, (void *) 0);
     PROC_create_kthread(&keyboard_io, (void *) 0);
     //PROC_create_kthread(&test_threads, (void *) 8);
@@ -99,83 +101,19 @@ void str_builder_test() {
     printk("\n%s\n", full);
 }
 
-int full_tree_cb(char *name, FATDirent *dirent, void *indent) {
-    int i;
-    if (name[0] == '.')
-        return 0;
-    if (indent > 0)
-        printk("|");
-    for (i = 0; i < (uint64_t) indent; i++)
-        printk("--");
-    if (dirent->attr & FAT_ATTR_DIRECTORY)
-        printk("%s/ (size: %u, attr: 0x%x)\n", name, dirent->size, dirent->attr);
-    else
-        printk("%s (size: %u, attr: 0x%x)\n", name, dirent->size, dirent->attr);
-    if ((dirent->attr & FAT_ATTR_DIRECTORY) && name[0] != '.') {
-        fat32_readdir((dirent->cluster_hi << 16) + dirent->cluster_lo, full_tree_cb, indent+1);
-    }
-    return 1;
-}
-
-/* run ls on directory given by filepath */
-int ls_cb(char *name, FATDirent *dirent, void *filepath){
-    FilePath *next = NULL, *curr=NULL;
-    if (filepath == NULL) {
-        if (dirent->attr & FAT_ATTR_DIRECTORY)
-            printk("\n|--%s/ (size: %u, attr: 0x%x)", name, dirent->size, dirent->attr);
-        else
-            printk("\n|--%s (size: %u, attr: 0x%x)", name, dirent->size, dirent->attr);
-        return 1;
-    }
-    curr = ((FilePath *) filepath);
-    if (strcmp(name, curr->name) == 0) {
-        next = curr->next;
-        printk("%s/", curr->name);
-        kfree(curr->name);
-        kfree(curr);
-        fat32_readdir((dirent->cluster_hi << 16) + dirent->cluster_lo, ls_cb, next);
-    }
-    return 1;
-}
-
-/* read file at filepath */
-int read_cb(char *name, FATDirent *dirent, void *filepath){
-    FilePath *next = NULL, *curr=NULL;
-    File *tgt = NULL;
-    char *contents = NULL;
-    if (filepath == NULL) {
-        return -1;
-    }
-    curr = ((FilePath *) filepath);
-
-    if (curr->next == NULL) {
-        // look for file and read
-        if (!(dirent->attr & FAT_ATTR_DIRECTORY) && 
-        strcmp(name, curr->name) == 0) {  
-            printk("%s: ", curr->name);
-            tgt = open(dirent);
-            contents = kmalloc(64);
-            memset(contents, 0, 64);
-            printk("read %d bytes\n", tgt->read(tgt, contents, 63));
-            tgt->close(&tgt);
-            printk("contents: %s", contents);
-        }
-    } else if ((dirent->attr & FAT_ATTR_DIRECTORY) && 
-                strcmp(name, curr->name) == 0) {
-            // traverse directories
-            next = curr->next;
-            printk("%s/", curr->name);
-            fat32_readdir((dirent->cluster_hi << 16) + dirent->cluster_lo, read_cb, next);
-    }   
-    return 1;
-}
-
 void read_fat_test() {
-    FilePath *fp;
-    fp=split_fpath("hello.txt", '/');
-    fat32_readdir(2, read_cb, fp);
-    fp=split_fpath("nest/bird.txt", '/');
-    fat32_readdir(2, read_cb, fp);
+    f32_print_contents("hello.txt", 32);
+    f32_print_contents("nonexistant.txt", 32);
+    f32_print_contents("nest/bird.txt", 32);
+}
+
+void md5_on_new_files() {
+    printk("\nhello: ");
+    f32_md5("hello.txt");
+    printk("\nacpi:  ");
+    f32_md5("boot/grub/i386-pc/acpi.mod");
+    printk("\nminix: ");
+    f32_md5("boot/grub/i386-pc/minix.mod");
 }
 
 void read_blk_test() {
